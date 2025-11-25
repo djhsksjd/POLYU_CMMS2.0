@@ -164,13 +164,13 @@ public class DataManagementPanel extends JPanel {
                 // 填充表格
                 for (Map<String, Object> building : buildings) {
                     Object[] rowData = {
-                        building.get("building_id"),
-                        building.get("building_code"),
-                        building.get("construction_date"),
-                        building.get("address_id"),
-                        building.get("num_floors"),
-                        building.get("supervisor_staff_id"),
-                        building.get("active_flag")
+                        building.get("buildingId"),
+                        building.get("buildingCode"),
+                        building.get("constructionDate"),
+                        building.get("addressId"),
+                        building.get("numFloors"),
+                        building.get("supervisorStaffId"),
+                        building.get("activeFlag")  
                     };
                     tableModel.addRow(rowData);
                 }
@@ -360,6 +360,29 @@ public class DataManagementPanel extends JPanel {
                 }
             }
         }
+        
+        // 分页导航方法实现
+        private void goToPreviousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                loadBuildingData();
+            }
+        }
+        
+        private void goToNextPage() {
+            // 重新获取数据以检查是否有更多页面
+            try {
+                Map<String, Object> result = buildingService.getBuildingsByPage(currentPage, pageSize, null, null, null);
+                int totalPages = getIntValue(result.get("totalPages"), 0);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadBuildingData();
+                }
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(this, "获取分页信息失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
+        }
     }
     
     // 房间数据管理面板
@@ -446,13 +469,13 @@ public class DataManagementPanel extends JPanel {
                 // 填充表格
                 for (Map<String, Object> room : rooms) {
                     Object[] rowData = {
-                        room.get("room_id"),
-                        room.get("building_id"),
+                        room.get("roomId"),
+                        room.get("buildingId"),
                         room.get("name"),
-                        room.get("room_type"),
+                        room.get("roomType"),
                         room.get("capacity"),
-                        room.get("room_features"),
-                        room.get("active_flag")
+                        room.get("roomFeatures"),
+                        room.get("activeFlag")  
                     };
                     tableModel.addRow(rowData);
                 }
@@ -632,6 +655,29 @@ public class DataManagementPanel extends JPanel {
                 } catch (SQLException ex) {
                     JOptionPane.showMessageDialog(this, "删除失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
                 }
+            }
+        }
+        
+        // 分页导航方法实现
+        private void goToPreviousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                loadRoomData();
+            }
+        }
+        
+        private void goToNextPage() {
+            // 重新获取数据以检查是否有更多页面
+            try {
+                Map<String, Object> result = roomService.getRoomsByPage(currentPage, pageSize, null, null, null);
+                int totalPages = getIntValue(result.get("totalPages"), 0);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    loadRoomData();
+                }
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(this, "获取分页信息失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
             }
         }
     }
