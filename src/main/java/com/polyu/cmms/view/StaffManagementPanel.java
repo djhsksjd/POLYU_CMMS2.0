@@ -251,6 +251,21 @@ public class StaffManagementPanel extends JPanel {
             });
         }
         
+        // 安全获取整数值的辅助方法
+        private int getIntValue(Object value, int defaultValue) {
+            if (value == null) {
+                return defaultValue;
+            }
+            if (value instanceof Number) {
+                return ((Number) value).intValue();
+            }
+            try {
+                return Integer.parseInt(value.toString());
+            } catch (NumberFormatException e) {
+                return defaultValue;
+            }
+        }
+        
         private void loadStaffData() {
             try {
                 StaffService staffService = StaffService.getInstance();
@@ -291,8 +306,8 @@ public class StaffManagementPanel extends JPanel {
                 Map<String, Object> result = staffService.getStaffByPage(currentPage, pageSize, filters, "staff_id", "ASC");
                 @SuppressWarnings("unchecked")
                 java.util.List<Map<String, Object>> staffList = (java.util.List<Map<String, Object>>) result.get("data");
-                int totalPages = (int) result.get("totalPages");
-                int total = (int) result.get("total");
+                int totalPages = getIntValue(result.get("totalPages"), 0);
+                int total = getIntValue(result.get("total"), 0);
                 
                 // 更新表格
                 tableModel.setRowCount(0);
@@ -514,7 +529,18 @@ public class StaffManagementPanel extends JPanel {
             JTextField emailInput = new JTextField(staff.get("email").toString(), 20);
             JTextField hireDateInput = new JTextField(staff.get("hireDate").toString(), 20);
             JComboBox<String> roleInput = new JComboBox<>(new String[]{"行政官", "中层经理", "基层员工"});
-            int roleId = (int) staff.get("roleId");
+            // 安全获取roleId，避免空指针异常
+            int roleId = 0;
+            Object roleIdObj = staff.get("roleId");
+            if (roleIdObj instanceof Number) {
+                roleId = ((Number) roleIdObj).intValue();
+            } else if (roleIdObj instanceof String) {
+                try {
+                    roleId = Integer.parseInt((String) roleIdObj);
+                } catch (NumberFormatException e) {
+                    roleId = 0;
+                }
+            }
             if (roleId == 1) roleInput.setSelectedItem("行政官");
             else if (roleId == 2) roleInput.setSelectedItem("中层经理");
             else if (roleId == 3) roleInput.setSelectedItem("基层员工");

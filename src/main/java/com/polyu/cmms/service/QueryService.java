@@ -60,9 +60,25 @@ public class QueryService extends BaseService {
         String countSql = "SELECT COUNT(*) as count FROM (" + sql + ") as temp";
         
         List<Map<String, Object>> results = executeQuery(countSql, params);
-        if (results.isEmpty()) {
+        if (results == null || results.isEmpty()) {
             return 0;
         }
-        return ((Number) results.get(0).get("count")).intValue();
+        
+        Map<String, Object> firstRow = results.get(0);
+        if (firstRow == null) {
+            return 0;
+        }
+        
+        Object countObj = firstRow.get("count");
+        if (countObj instanceof Number) {
+            return ((Number) countObj).intValue();
+        } else if (countObj != null) {
+            try {
+                return Integer.parseInt(countObj.toString());
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
     }
 }

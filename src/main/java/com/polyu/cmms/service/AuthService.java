@@ -49,19 +49,27 @@ public class AuthService extends BaseService {
         List<Map<String, Object>> results = executeQuery(sql, username);
         if (!results.isEmpty()) {
             currentUsername = username;
-            currentUserId = (Integer) results.get(0).get("staff_id");
-            // 根据role_id简单设置角色名称
-            int roleId = (Integer) results.get(0).get("roleId");
-            switch (roleId) {
-                case 1:
-                    currentRole = "管理员";
-                    break;
-                case 2:
-                    currentRole = "主管";
-                    break;
-                default:
-                    currentRole = "普通员工";
-                    break;
+            // 安全获取staff_id和role_id，避免空指针异常
+            Map<String, Object> result = results.get(0);
+            if (result != null) {
+                currentUserId = result.get("staff_id") instanceof Integer ? (Integer) result.get("staff_id") : null;
+                // 根据role_id简单设置角色名称
+                int roleId = getIntValue(result.get("role_id"), 0);
+                switch (roleId) {
+                    case 1:
+                        currentRole = "管理员";
+                        break;
+                    case 2:
+                        currentRole = "主管";
+                        break;
+                    default:
+                        currentRole = "普通员工";
+                        break;
+                }
+            } else {
+                // 如果result为null，设置默认值
+                currentUserId = null;
+                currentRole = "普通员工";
             }
             return true;
         }
@@ -87,7 +95,9 @@ public class AuthService extends BaseService {
             return "普通员工";
         }
         
-        int roleId = (Integer) results.get(0).get("roleId");
+        // 确保使用getIntValue方法进行安全类型转换
+        Map<String, Object> result = results.get(0);
+        int roleId = getIntValue(result != null ? result.get("role_id") : null, 0);
         switch (roleId) {
             case 1:
                 return "管理员";
@@ -131,6 +141,21 @@ public class AuthService extends BaseService {
      * @return 是否有权限
      * @throws SQLException SQL异常
      */
+    // 安全获取整数值的辅助方法
+    private int getIntValue(Object value, int defaultValue) {
+        if (value == null) {
+            return defaultValue;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+    
     public boolean hasPermission(String permission) throws SQLException {
         if (currentUsername == null) {
             return false;

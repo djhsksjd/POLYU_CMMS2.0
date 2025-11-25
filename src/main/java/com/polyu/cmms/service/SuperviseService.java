@@ -472,7 +472,19 @@ public class SuperviseService extends BaseService {
                 result.put("data", supervises);
                 result.put("page", page);
                 result.put("pageSize", pageSize);
-                result.put("totalPages", (int) Math.ceil((Integer) result.get("total") / (double) pageSize));
+                // 安全获取total值并计算总页数，避免空指针异常
+                int total = 0;
+                Object totalObj = result.get("total");
+                if (totalObj instanceof Number) {
+                    total = ((Number) totalObj).intValue();
+                } else if (totalObj instanceof String) {
+                    try {
+                        total = Integer.parseInt((String) totalObj);
+                    } catch (NumberFormatException e) {
+                        total = 0;
+                    }
+                }
+                result.put("totalPages", (int) Math.ceil(total / (double) pageSize));
             }
             
             return result;

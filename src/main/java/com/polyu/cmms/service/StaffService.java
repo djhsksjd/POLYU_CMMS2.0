@@ -244,10 +244,26 @@ public class StaffService extends BaseService {
         }
         
         List<Map<String, Object>> results = executeQuery(sqlBuilder.toString(), params.toArray());
-        if (results.isEmpty()) {
+        if (results == null || results.isEmpty()) {
             return 0;
         }
-        return ((Number) results.get(0).get("count")).intValue();
+        
+        Map<String, Object> firstRow = results.get(0);
+        if (firstRow == null) {
+            return 0;
+        }
+        
+        Object countObj = firstRow.get("count");
+        if (countObj instanceof Number) {
+            return ((Number) countObj).intValue();
+        } else if (countObj != null) {
+            try {
+                return Integer.parseInt(countObj.toString());
+            } catch (NumberFormatException e) {
+                return 0;
+            }
+        }
+        return 0;
     }
     
     /**
@@ -261,9 +277,44 @@ public class StaffService extends BaseService {
         
         Map<Integer, Integer> roleCountMap = new java.util.HashMap<>();
         for (Map<String, Object> result : results) {
-            int roleId = ((Number) result.get("roleId")).intValue();
-            int count = ((Number) result.get("count")).intValue();
-            roleCountMap.put(roleId, count);
+            // 安全获取整数值，避免空指针异常
+            Integer roleId = null;
+            Integer count = null;
+            
+            // 尝试从不同的键名获取roleId（考虑数据库列名可能为role_id）
+            Object roleIdObj = result.get("roleId");
+            if (roleIdObj == null) {
+                roleIdObj = result.get("role_id");
+            }
+            
+            // 尝试从不同的键名获取count
+            Object countObj = result.get("count");
+            
+            // 安全转换为Integer
+            if (roleIdObj instanceof Number) {
+                roleId = ((Number) roleIdObj).intValue();
+            } else if (roleIdObj != null) {
+                try {
+                    roleId = Integer.parseInt(roleIdObj.toString());
+                } catch (NumberFormatException e) {
+                    roleId = null;
+                }
+            }
+            
+            if (countObj instanceof Number) {
+                count = ((Number) countObj).intValue();
+            } else if (countObj != null) {
+                try {
+                    count = Integer.parseInt(countObj.toString());
+                } catch (NumberFormatException e) {
+                    count = null;
+                }
+            }
+            
+            // 只有当两个值都有效时才添加到映射中
+            if (roleId != null && count != null) {
+                roleCountMap.put(roleId, count);
+            }
         }
         return roleCountMap;
     }
@@ -279,9 +330,32 @@ public class StaffService extends BaseService {
         
         Map<String, Integer> genderCountMap = new java.util.HashMap<>();
         for (Map<String, Object> result : results) {
-            String gender = (String) result.get("gender");
-            int count = ((Number) result.get("count")).intValue();
-            genderCountMap.put(gender, count);
+            // 安全获取gender值
+            String gender = null;
+            Object genderObj = result.get("gender");
+            if (genderObj instanceof String) {
+                gender = (String) genderObj;
+            } else if (genderObj != null) {
+                gender = genderObj.toString();
+            }
+            
+            // 安全获取count值
+            Integer count = null;
+            Object countObj = result.get("count");
+            if (countObj instanceof Number) {
+                count = ((Number) countObj).intValue();
+            } else if (countObj != null) {
+                try {
+                    count = Integer.parseInt(countObj.toString());
+                } catch (NumberFormatException e) {
+                    count = null;
+                }
+            }
+            
+            // 只有当两个值都有效时才添加到映射中
+            if (gender != null && count != null) {
+                genderCountMap.put(gender, count);
+            }
         }
         return genderCountMap;
     }

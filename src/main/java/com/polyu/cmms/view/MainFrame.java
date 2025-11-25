@@ -71,7 +71,10 @@ public class MainFrame extends JFrame {
             // 处理数据库异常
             JOptionPane.showMessageDialog(this, "权限检查时发生数据库错误: " + ex.getMessage(), 
                     "错误", JOptionPane.ERROR_MESSAGE);
-            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+            // 确保userId不为null，避免空指针异常
+            Integer userId = authService.getCurrentUserId();
+            String role = authService.getCurrentRole();
+            HtmlLogger.logError(userId != null ? userId : -1, role != null ? role : "未知角色", 
                     "权限检查", "权限检查失败: " + ex.getMessage());
         }
         
