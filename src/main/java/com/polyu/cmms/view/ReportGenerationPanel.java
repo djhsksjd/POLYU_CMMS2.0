@@ -21,11 +21,11 @@ public class ReportGenerationPanel extends JPanel {
     }
 
     private void initializeUI() {
-        this.setLayout(new BorderLayout(10, 10));
-        this.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        this.setLayout(new BorderLayout(15, 15)); // 增大间距
+        this.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15)); // 增大边距，使界面更宽敞
 
         // 1. 顶部控制面板
-        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 15)); // 增大控件间距
 
         JLabel selectLabel = new JLabel("请选择报表类型：");
         String[] reportTypes = {
@@ -57,11 +57,17 @@ public class ReportGenerationPanel extends JPanel {
 
         // 2. 中部报表显示区域
         reportTextArea = new JTextArea();
-        reportTextArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
+        reportTextArea.setFont(new Font("Monospaced", Font.PLAIN, 12)); // 稍小字体更适合格式化报表
         reportTextArea.setEditable(false);
-        reportTextArea.setLineWrap(true);
-        reportTextArea.setWrapStyleWord(true);
+        reportTextArea.setLineWrap(false);
+        reportTextArea.setWrapStyleWord(false);
+        reportTextArea.setTabSize(4); // 设置制表符大小为4，使对齐更美观
+        reportTextArea.setMargin(new Insets(10, 10, 10, 10)); // 设置内边距，让文本不紧贴边框
+        
         JScrollPane scrollPane = new JScrollPane(reportTextArea);
+        scrollPane.setPreferredSize(new Dimension(900, 600)); // 增大面板尺寸，提供更好的阅读体验
+        scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
         // 3. 组装面板
         this.add(controlPanel, BorderLayout.NORTH);
@@ -78,8 +84,11 @@ public class ReportGenerationPanel extends JPanel {
             }
 
             // --- 核心修改点 ---
-            // 1. 在文本区域显示“生成中”提示，而不是弹出模态对话框
-            reportTextArea.setText("正在生成报表，请稍候...");
+            // 1. 在文本区域显示“生成中”提示，使用更醒目的格式
+            reportTextArea.setText("=========================\n");
+            reportTextArea.append("  正在生成报表，请稍候...\n");
+            reportTextArea.append("=========================\n");
+            reportTextArea.append("\n报表生成过程中请勿关闭页面...\n");
             // 2. 禁用生成按钮和下拉框，防止用户重复操作
             generateButton.setEnabled(false);
             reportTypeComboBox.setEnabled(false);
@@ -114,8 +123,16 @@ public class ReportGenerationPanel extends JPanel {
                         String reportContent = get();
                         reportTextArea.setText(reportContent);
                     } catch (Exception ex) {
-                        ex.printStackTrace();
-                        reportTextArea.setText("生成报表时发生错误: " + ex.getMessage() + "\n请查看日志获取详细信息。");
+                    ex.printStackTrace();
+                    reportTextArea.setText("=========================\n");
+                    reportTextArea.append("  报表生成失败\n");
+                    reportTextArea.append("=========================\n\n");
+                    reportTextArea.append("错误信息: " + ex.getMessage() + "\n\n");
+                    reportTextArea.append("请查看日志文件获取详细错误信息。\n");
+                    reportTextArea.append("建议操作: \n");
+                    reportTextArea.append("1. 检查数据库连接是否正常\n");
+                    reportTextArea.append("2. 确认您有足够的权限访问数据\n");
+                    reportTextArea.append("3. 如问题持续，请联系系统管理员\n");
                     } finally {
                         // --- 核心修改点 ---
                         // 3. 无论成功或失败，都重新启用按钮和下拉框

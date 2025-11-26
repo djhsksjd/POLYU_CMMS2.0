@@ -106,6 +106,10 @@ public class DataManagementPanel extends JPanel {
             add(scrollPane, BorderLayout.CENTER);
             
             // 创建按钮面板
+            // 创建底部面板，包含操作按钮和分页控件
+            JPanel bottomPanel = new JPanel(new BorderLayout());
+            
+            // 创建按钮面板
             JPanel buttonPanel = new JPanel();
             JButton addButton = new JButton("添加建筑物");
             JButton updateButton = new JButton("更新建筑物");
@@ -114,12 +118,14 @@ public class DataManagementPanel extends JPanel {
             buttonPanel.add(addButton);
             buttonPanel.add(updateButton);
             buttonPanel.add(deleteButton);
-            add(buttonPanel, BorderLayout.SOUTH);
+            bottomPanel.add(buttonPanel, BorderLayout.NORTH);
             
             // 创建分页面板
-            // 创建分页面板并保存自己的按钮引用
             JPanel paginationPanel = createPaginationPanel();
-            add(paginationPanel, BorderLayout.AFTER_LAST_LINE);
+            bottomPanel.add(paginationPanel, BorderLayout.SOUTH);
+            
+            // 将底部面板添加到主面板的SOUTH位置
+            add(bottomPanel, BorderLayout.SOUTH);
             
             // 获取分页面板中的按钮引用
             for (Component comp : paginationPanel.getComponents()) {
@@ -411,20 +417,26 @@ public class DataManagementPanel extends JPanel {
             add(scrollPane, BorderLayout.CENTER);
             
             // 创建按钮面板
+            // 创建底部面板，包含操作按钮和分页控件
+            JPanel bottomPanel = new JPanel(new BorderLayout());
+            
+            // 创建按钮面板
             JPanel buttonPanel = new JPanel();
             JButton addButton = new JButton("添加房间");
             JButton updateButton = new JButton("更新房间");
             JButton deleteButton = new JButton("删除房间");
-            
+
             buttonPanel.add(addButton);
             buttonPanel.add(updateButton);
             buttonPanel.add(deleteButton);
-            add(buttonPanel, BorderLayout.SOUTH);
+            bottomPanel.add(buttonPanel, BorderLayout.NORTH);
             
             // 创建分页面板
-            // 创建分页面板并保存自己的按钮引用
             JPanel paginationPanel = createPaginationPanel();
-            add(paginationPanel, BorderLayout.AFTER_LAST_LINE);
+            bottomPanel.add(paginationPanel, BorderLayout.SOUTH);
+            
+            // 将底部面板添加到主面板的SOUTH位置
+            add(bottomPanel, BorderLayout.SOUTH);
             
             // 获取分页面板中的按钮引用
             for (Component comp : paginationPanel.getComponents()) {
@@ -708,20 +720,26 @@ public class DataManagementPanel extends JPanel {
             add(scrollPane, BorderLayout.CENTER);
             
             // 创建按钮面板
+            // 创建底部面板，包含操作按钮和分页控件
+            JPanel bottomPanel = new JPanel(new BorderLayout());
+            
+            // 创建按钮面板
             JPanel buttonPanel = new JPanel();
             JButton addButton = new JButton("添加公司");
             JButton updateButton = new JButton("更新公司");
             JButton deleteButton = new JButton("删除公司");
-            
+
             buttonPanel.add(addButton);
             buttonPanel.add(updateButton);
             buttonPanel.add(deleteButton);
-            add(buttonPanel, BorderLayout.SOUTH);
+            bottomPanel.add(buttonPanel, BorderLayout.NORTH);
             
             // 创建分页面板
-            // 创建分页面板并保存自己的按钮引用
             JPanel paginationPanel = createPaginationPanel();
-            add(paginationPanel, BorderLayout.AFTER_LAST_LINE);
+            bottomPanel.add(paginationPanel, BorderLayout.SOUTH);
+            
+            // 将底部面板添加到主面板的SOUTH位置
+            add(bottomPanel, BorderLayout.SOUTH);
             
             // 获取分页面板中的按钮引用
             for (Component comp : paginationPanel.getComponents()) {
@@ -1064,20 +1082,26 @@ public class DataManagementPanel extends JPanel {
             add(scrollPane, BorderLayout.CENTER);
             
             // 创建按钮面板
+            // 创建底部面板，包含操作按钮和分页控件
+            JPanel bottomPanel = new JPanel(new BorderLayout());
+            
+            // 创建按钮面板
             JPanel buttonPanel = new JPanel();
             JButton addButton = new JButton("添加化学物质");
             JButton updateButton = new JButton("更新化学物质");
             JButton deleteButton = new JButton("删除化学物质");
-            
+
             buttonPanel.add(addButton);
             buttonPanel.add(updateButton);
             buttonPanel.add(deleteButton);
-            add(buttonPanel, BorderLayout.SOUTH);
+            bottomPanel.add(buttonPanel, BorderLayout.NORTH);
             
             // 创建分页面板
-            // 创建分页面板并保存自己的按钮引用
             JPanel paginationPanel = createPaginationPanel();
-            add(paginationPanel, BorderLayout.AFTER_LAST_LINE);
+            bottomPanel.add(paginationPanel, BorderLayout.SOUTH);
+            
+            // 将底部面板添加到主面板的SOUTH位置
+            add(bottomPanel, BorderLayout.SOUTH);
             
             // 获取分页面板中的按钮引用
             for (Component comp : paginationPanel.getComponents()) {
