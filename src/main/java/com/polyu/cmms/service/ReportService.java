@@ -2,14 +2,12 @@ package com.polyu.cmms.service;
 
 import com.polyu.cmms.util.DatabaseUtil;
 import com.polyu.cmms.util.DateUtils;
-import com.polyu.cmms.util.StringUtils;
 import com.polyu.cmms.util.HtmlLogger;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.text.ParseException;
 import java.util.*;
 
 public class ReportService extends BaseService {
@@ -237,27 +235,7 @@ public class ReportService extends BaseService {
      * @param lastMaintenanceTime 最近维护时间（可为 null）
      * @return 超期警告（空字符串表示未超期）
      */
-    /**
-     * 【辅助方法】计算维护记录是否超期，生成警告文本
-     * @param lastMaintenanceTime 最近维护时间（可为 null）
-     * @return 超期警告（空字符串表示未超期）
-     */
-    // 注意：方法声明末尾没有 "throws ParseException"
-    private String getOverdueWarning(Date lastMaintenanceTime) {
-        // 无维护时间 → 无警告
-        if (lastMaintenanceTime == null) {
-            return "";
-        }
 
-        // 假设超期阈值：7天
-        long daysDiff = DateUtils.getDayDiff(lastMaintenanceTime, new Date());
-        if (daysDiff > 7) {
-            return "[超期警告] 已超" + daysDiff + "天";
-        }
-        
-        // 未超期 → 无警告
-        return "";
-    }
 
     // ==================== 化学品使用消耗报表 ====================
     public String generateChemicalConsumptionReport() {

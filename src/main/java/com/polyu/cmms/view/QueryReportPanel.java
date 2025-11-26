@@ -2,9 +2,7 @@ package com.polyu.cmms.view;
 
 import com.polyu.cmms.service.*;
 import javax.swing.*;
-import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.JTableHeader;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -22,13 +20,11 @@ public class QueryReportPanel extends JPanel {
     private BuildingService buildingService;
     private StaffService staffService;
     private ChemicalService chemicalService;
-    private ActivityService activityService;
+    
 
     // 颜色主题
     private final Color PRIMARY_COLOR = new Color(70, 130, 180); // 钢蓝色
-    private final Color SECONDARY_COLOR = new Color(100, 149, 237); // 矢车菊蓝
     private final Color ACCENT_COLOR = new Color(46, 125, 50); // 成功绿色
-    private final Color WARNING_COLOR = new Color(198, 40, 40); // 警告红色
     private final Color BACKGROUND_COLOR = new Color(240, 245, 250); // 浅蓝背景
     private final Color PANEL_BACKGROUND = Color.WHITE;
 
@@ -38,7 +34,6 @@ public class QueryReportPanel extends JPanel {
         buildingService = BuildingService.getInstance();
         staffService = StaffService.getInstance();
         chemicalService = ChemicalService.getInstance();
-        activityService = ActivityService.getInstance();
 
         setLayout(new BorderLayout());
         setBackground(BACKGROUND_COLOR);
@@ -705,8 +700,8 @@ public class QueryReportPanel extends JPanel {
             JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
             buttonPanel.setBackground(PANEL_BACKGROUND);
 
-            JButton queryButton = createActionButton("查询", ACCENT_COLOR);
-            JButton exportButton = createActionButton("导出结果", PRIMARY_COLOR);
+            JButton queryButton = QueryReportPanel.this.createActionButton("查询", QueryReportPanel.this.ACCENT_COLOR);
+            JButton exportButton = QueryReportPanel.this.createActionButton("导出结果", QueryReportPanel.this.PRIMARY_COLOR);
 
             queryButton.addActionListener(e -> queryChemicalUsage());
             exportButton.addActionListener(e -> exportResults());
@@ -720,7 +715,7 @@ public class QueryReportPanel extends JPanel {
             JPanel criteriaPanel = new JPanel(new GridLayout(2, 2, 15, 15));
             criteriaPanel.setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createTitledBorder(
-                            BorderFactory.createLineBorder(PRIMARY_COLOR, 1),
+                            BorderFactory.createLineBorder(QueryReportPanel.this.PRIMARY_COLOR, 1),
                             "查询条件"
                     ),
                     BorderFactory.createEmptyBorder(15, 15, 15, 15)
@@ -728,8 +723,8 @@ public class QueryReportPanel extends JPanel {
             criteriaPanel.setBackground(PANEL_BACKGROUND);
 
             // 化学品选择
-            JLabel chemicalLabel = createFieldLabel("化学品名称:");
-            chemicalComboBox = createStyledComboBox();
+            JLabel chemicalLabel = QueryReportPanel.this.createFieldLabel("化学品名称:");
+            chemicalComboBox = QueryReportPanel.this.createStyledComboBox();
 
             criteriaPanel.add(chemicalLabel);
             criteriaPanel.add(chemicalComboBox);
@@ -824,18 +819,7 @@ public class QueryReportPanel extends JPanel {
         return label;
     }
 
-    private JPanel createStyledPanel(String title) {
-        JPanel panel = new JPanel(new BorderLayout(5, 5));
-        panel.setBorder(BorderFactory.createTitledBorder(title));
-        panel.setBackground(PANEL_BACKGROUND);
-        return panel;
-    }
 
-    private JTextArea createStyledTextArea(int rows) {
-        JTextArea textArea = new JTextArea(rows, 50);
-        // 使用系统默认样式
-        return textArea;
-    }
 
     private JButton createActionButton(String text, Color bgColor) {
         JButton button = new JButton(text);
@@ -855,17 +839,7 @@ public class QueryReportPanel extends JPanel {
         return comboBox;
     }
 
-    private JTextField createStyledTextField() {
-        JTextField textField = new JTextField();
-        // 使用系统默认样式
-        return textField;
-    }
 
-    private JCheckBox createStyledCheckBox() {
-        JCheckBox checkBox = new JCheckBox();
-        // 使用系统默认样式
-        return checkBox;
-    }
 
     private JTable createStyledTable() {
         JTable table = new JTable() {

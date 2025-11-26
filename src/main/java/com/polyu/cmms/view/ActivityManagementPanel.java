@@ -1,25 +1,37 @@
 package com.polyu.cmms.view;
 
 import com.polyu.cmms.model.Activity;
-
 import com.polyu.cmms.service.ActivityService;
 import com.polyu.cmms.service.AuthService;
 import com.polyu.cmms.service.StaffService;
 import com.polyu.cmms.service.WorksForService;
 import com.polyu.cmms.util.HtmlLogger;
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.Date;
-import java.sql.SQLException;
+
 
 public class ActivityManagementPanel extends JPanel {
     private JTable table;
@@ -53,6 +65,20 @@ public class ActivityManagementPanel extends JPanel {
             // 创建表格
             table = new JTable(tableModel);
             JScrollPane scrollPane = new JScrollPane(table);
+            
+            // 创建标题标签
+            JLabel titleLabel = new JLabel("活动管理", JLabel.CENTER);
+            
+            // 创建顶部按钮面板 - 放置查看人员分配和查看不可用地点按钮
+            JPanel topButtonPanel = new JPanel();
+            JButton viewStaffAssignmentButton = new JButton("查看人员分配");
+            JButton viewUnavailableLocationsButton = new JButton("查看不可用地点");
+            
+            viewStaffAssignmentButton.addActionListener(e -> viewStaffAssignment());
+            viewUnavailableLocationsButton.addActionListener(e -> viewUnavailableLocations());
+            
+            topButtonPanel.add(viewStaffAssignmentButton);
+            topButtonPanel.add(viewUnavailableLocationsButton);
             
             // 创建操作按钮面板
             JPanel buttonPanel = new JPanel();
@@ -103,8 +129,13 @@ public class ActivityManagementPanel extends JPanel {
             bottomPanel.add(buttonPanel, BorderLayout.WEST);
             bottomPanel.add(paginationPanel, BorderLayout.EAST);
             
+            // 创建顶部面板，包含标题和顶部按钮
+            JPanel topPanel = new JPanel(new BorderLayout());
+            topPanel.add(titleLabel, BorderLayout.NORTH);
+            topPanel.add(topButtonPanel, BorderLayout.CENTER);
+            
             // 添加组件到主面板
-            add(new JLabel("活动管理", JLabel.CENTER), BorderLayout.NORTH);
+            add(topPanel, BorderLayout.NORTH);
             add(scrollPane, BorderLayout.CENTER);
             add(bottomPanel, BorderLayout.SOUTH);
             
@@ -408,397 +439,60 @@ public class ActivityManagementPanel extends JPanel {
             HtmlLogger.logInfo(authService.getCurrentUserId(), authService.getCurrentRole(), "分配活动", "用户尝试分配活动ID=" + activityId);
             
             try {
-                // 获取WorksForService和StaffService实例
-                WorksForService worksForService = new WorksForService();
+                // 获取服务实例 - 使用单例模式
+                WorksForService worksForService = WorksForService.getInstance();
                 StaffService staffService = StaffService.getInstance();
                 
-                // 创建一个新的对话框用于批量分配
-                JDialog assignmentDialog = new JDialog((Frame)SwingUtilities.getWindowAncestor(this), 
-                        "员工分配 - " + selectedActivity.getTitle(), true);
-                assignmentDialog.setSize(700, 500);
-                assignmentDialog.setLayout(new BorderLayout());
+                // 创建对话框
+                JDialog assignmentDialog = createAssignmentDialog(selectedActivity);
                 
-                // 创建表格模型，包含复选框列和职责列
-                String[] columnNames = {"选择", "员工姓名", "员工编号", "角色", "状态", "职责描述"};
-                DefaultTableModel staffTableModel = new DefaultTableModel(columnNames, 0) {
-                    @Override
-                    public Class<?> getColumnClass(int column) {
-                        return column == 0 ? Boolean.class : Object.class;
-                    }
-                    
-                    @Override
-                    public boolean isCellEditable(int row, int column) {
-                        // 复选框列和职责描述列可编辑
-                        return column == 0 || column == 5;
-                    }
-                };
-                
-                // 创建表格
+                // 创建表格模型
+                DefaultTableModel staffTableModel = createStaffTableModel();
                 JTable staffTable = new JTable(staffTableModel);
-                staffTable.getColumnModel().getColumn(0).setMaxWidth(50);
-                staffTable.getColumnModel().getColumn(5).setPreferredWidth(200); // 增加职责描述列宽度
+                configureStaffTable(staffTable);
                 JScrollPane scrollPane = new JScrollPane(staffTable);
                 
                 // 创建职责输入区域和按钮面板
-                JPanel bottomPanel = new JPanel(new BorderLayout());
-                
-                // 职责输入区域
-                JPanel responsibilityPanel = new JPanel(new BorderLayout());
-                responsibilityPanel.setBorder(BorderFactory.createTitledBorder("批量职责描述"));
-                JTextArea responsibilityArea = new JTextArea(2, 40);
-                responsibilityPanel.add(new JScrollPane(responsibilityArea), BorderLayout.CENTER);
-                
-                // 创建按钮面板
-                JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-                JButton assignButton = new JButton("分配选中员工");
-                JButton unassignButton = new JButton("取消选中员工分配");
-                JButton cancelButton = new JButton("关闭");
-                buttonPanel.add(assignButton);
-                buttonPanel.add(unassignButton);
-                buttonPanel.add(cancelButton);
-                
-                // 组织底部面板
-                bottomPanel.add(responsibilityPanel, BorderLayout.NORTH);
-                bottomPanel.add(buttonPanel, BorderLayout.CENTER);
+                JPanel bottomPanel = createBottomPanel();
+                JTextArea responsibilityArea = (JTextArea)((JScrollPane)((JPanel)bottomPanel.getComponent(0)).getComponent(0)).getViewport().getView();
                 
                 // 添加组件到对话框
                 assignmentDialog.add(new JLabel("请选择要分配到活动的员工：", JLabel.CENTER), BorderLayout.NORTH);
                 assignmentDialog.add(scrollPane, BorderLayout.CENTER);
                 assignmentDialog.add(bottomPanel, BorderLayout.SOUTH);
                 
-                // 获取所有员工和已分配员工信息
+                // 加载数据
                 List<Map<String, Object>> allStaff = staffService.queryStaff(new HashMap<>());
                 List<Map<String, Object>> assignedStaffDetails = worksForService.queryStaffByActivityId(activityId);
                 
-                // 添加日志记录，检查是否有员工数据
+                // 记录调试信息
                 System.out.println("分配活动-员工总数: " + (allStaff != null ? allStaff.size() : 0));
                 System.out.println("分配活动-已分配员工数: " + (assignedStaffDetails != null ? assignedStaffDetails.size() : 0));
                 
-                // 创建已分配员工信息Map，存储员工ID到职责的映射
+                // 准备已分配员工数据
                 Map<Integer, String> assignedStaffInfo = new HashMap<>();
-                
-                // 创建已分配员工ID的Set用于快速查找
                 Set<Integer> assignedStaffIds = new HashSet<>();
-                if (assignedStaffDetails != null) {
-                    for (Map<String, Object> staff : assignedStaffDetails) {
-                        try {
-                            // 尝试从不同的键名获取staff_id
-                            Object staffIdObj = staff.get("staff_id");
-                            if (staffIdObj == null) {
-                                staffIdObj = staff.get("staffId");
-                            }
-                            
-                            if (staffIdObj instanceof Number) {
-                                int staffId = ((Number) staffIdObj).intValue();
-                                assignedStaffIds.add(staffId);
-                                
-                                // 存储员工职责，尝试不同的键名
-                                String responsibility = "";
-                                Object respObj = staff.get("activity_responsibility");
-                                if (respObj == null) {
-                                    respObj = staff.get("responsibility");
-                                }
-                                if (respObj != null) {
-                                    responsibility = respObj.toString();
-                                }
-                                assignedStaffInfo.put(staffId, responsibility);
-                            }
-                        } catch (Exception e) {
-                            // 安全处理，避免单个数据错误影响整体
-                            System.err.println("处理已分配员工数据错误: " + e.getMessage());
-                            continue;
-                        }
-                    }
-                }
+                prepareAssignedStaffData(assignedStaffDetails, assignedStaffIds, assignedStaffInfo);
                 
-                // 填充员工表格
-                Map<Integer, Integer> staffIdToRowMap = new HashMap<>(); // 员工ID到表格行的映射
-                int addedCount = 0;
+                // 填充表格
+                Map<Integer, Integer> staffIdToRowMap = new HashMap<>();
+                loadStaffData(allStaff, assignedStaffIds, assignedStaffInfo, staffTableModel, staffIdToRowMap);
                 
-                if (allStaff != null) {
-                    for (Map<String, Object> staff : allStaff) {
-                        try {
-                            // 尝试从不同的键名获取员工ID
-                            Object staffIdObj = staff.get("staff_id");
-                            if (staffIdObj == null) {
-                                staffIdObj = staff.get("staffId");
-                            }
-                            
-                            Integer staffId = null;
-                            if (staffIdObj instanceof Number) {
-                                staffId = ((Number) staffIdObj).intValue();
-                            } else if (staffIdObj != null) {
-                                try {
-                                    staffId = Integer.parseInt(staffIdObj.toString());
-                                } catch (NumberFormatException ex) {
-                                    System.err.println("无效的员工ID格式: " + staffIdObj);
-                                }
-                            }
-                            
-                            // 如果获取不到员工ID，仍然尝试添加该员工（使用其他信息）
-                            
-                            // 尝试从不同的键名获取员工姓名
-                            String firstName = "";
-                            Object firstNameObj = staff.get("first_name");
-                            if (firstNameObj == null) {
-                                firstNameObj = staff.get("firstName");
-                            }
-                            if (firstNameObj != null) {
-                                firstName = firstNameObj.toString();
-                            }
-                            
-                            String lastName = "";
-                            Object lastNameObj = staff.get("last_name");
-                            if (lastNameObj == null) {
-                                lastNameObj = staff.get("lastName");
-                            }
-                            if (lastNameObj != null) {
-                                lastName = lastNameObj.toString();
-                            }
-                            
-                            String staffName = firstName + " " + lastName;
-                            
-                            // 尝试从不同的键名获取员工编号
-                            String staffNumber = "";
-                            Object staffNumberObj = staff.get("staff_number");
-                            if (staffNumberObj == null) {
-                                staffNumberObj = staff.get("staffNumber");
-                            }
-                            if (staffNumberObj != null) {
-                                staffNumber = staffNumberObj.toString();
-                            }
-                            
-                            // 尝试从不同的键名获取角色
-                            String role = "";
-                            Object roleObj = staff.get("role_id");
-                            if (roleObj == null) {
-                                roleObj = staff.get("roleId");
-                            }
-                            if (roleObj != null) {
-                                role = roleObj.toString();
-                            }
-                            
-                            // 检查员工是否已分配
-                            boolean isAssigned = staffId != null && assignedStaffIds.contains(staffId);
-                            String status = isAssigned ? "已分配" : "空闲";
-                            String responsibility = isAssigned && staffId != null ? assignedStaffInfo.getOrDefault(staffId, "") : "";
-                            
-                            // 空闲员工默认选中，已分配员工不选中
-                            int rowIndex = staffTableModel.getRowCount();
-                            staffTableModel.addRow(new Object[]{!isAssigned, staffName, staffNumber, role, status, responsibility});
-                            addedCount++;
-                            
-                            // 保存员工ID和行索引的映射关系（如果有员工ID）
-                            if (staffId != null) {
-                                staffIdToRowMap.put(staffId, rowIndex);
-                            }
-                        } catch (Exception e) {
-                            // 安全处理，跳过有问题的记录
-                            System.err.println("添加员工到表格时出错: " + e.getMessage());
-                            continue;
-                        }
-                    }
-                }
+                // 设置按钮事件
+                JButton assignButton = (JButton)((JPanel)bottomPanel.getComponent(1)).getComponent(0);
+                JButton unassignButton = (JButton)((JPanel)bottomPanel.getComponent(1)).getComponent(1);
+                JButton cancelButton = (JButton)((JPanel)bottomPanel.getComponent(1)).getComponent(2);
                 
-                // 记录添加到表格的员工数量
-                System.out.println("成功添加到表格的员工数量: " + addedCount);
+                setupAssignButtonListener(assignButton, assignmentDialog, responsibilityArea, staffTableModel, allStaff, 
+                        selectedActivity, activityId, worksForService, staffIdToRowMap);
                 
-                // 分配按钮事件处理
-                assignButton.addActionListener(e -> {
-                    try {
-                        String batchResponsibility = responsibilityArea.getText().trim();
-                        if (batchResponsibility.isEmpty()) {
-                            JOptionPane.showMessageDialog(assignmentDialog, "请输入职责描述", "提示", JOptionPane.WARNING_MESSAGE);
-                            return;
-                        }
-                        
-                        // 收集选中的员工ID列表用于批量分配
-                        List<Integer> selectedStaffIds = new ArrayList<>();
-                        
-                        for (int i = 0; i < staffTableModel.getRowCount(); i++) {
-                            Boolean isSelected = (Boolean) staffTableModel.getValueAt(i, 0);
-                            String status = (String) staffTableModel.getValueAt(i, 4);
-                            
-                            // 只处理选中且状态为空闲的员工
-                            if (Boolean.TRUE.equals(isSelected) && "空闲".equals(status)) {
-                                try {
-                                    // 从原始数据中找到对应的员工ID
-                                    String staffNumber = (String) staffTableModel.getValueAt(i, 2);
-                                    Integer staffId = null;
-                                    
-                                    for (Map<String, Object> staff : allStaff) {
-                                        String currentStaffNumber = staff.get("staff_number") != null ? 
-                                                staff.get("staff_number").toString() : "";
-                                        
-                                        if (staffNumber.equals(currentStaffNumber)) {
-                                            Object staffIdObj = staff.get("staff_id");
-                                            if (staffIdObj instanceof Number) {
-                                                staffId = ((Number) staffIdObj).intValue();
-                                            }
-                                            break;
-                                        }
-                                    }
-                                    
-                                    if (staffId != null && !worksForService.isStaffInActivity(staffId, activityId)) {
-                                        selectedStaffIds.add(staffId);
-                                    }
-                                } catch (Exception ex) {
-                                    // 记录错误但继续处理其他员工
-                                    HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
-                                            "分配活动", "处理员工时出错: " + ex.getMessage());
-                                }
-                            }
-                        }
-                        
-                        // 使用批量分配方法
-                        if (!selectedStaffIds.isEmpty()) {
-                            int assignedCount = worksForService.batchAddStaffToActivity(selectedStaffIds, activityId, batchResponsibility);
-                            
-                            // 更新表格中的状态
-                            for (int i = 0; i < staffTableModel.getRowCount(); i++) {
-                                String staffNumber = (String) staffTableModel.getValueAt(i, 2);
-                                for (Integer staffId : selectedStaffIds) {
-                                    // 找到对应的行并更新状态
-                                    for (Map<String, Object> staff : allStaff) {
-                                        String currentStaffNumber = staff.get("staff_number") != null ? 
-                                                staff.get("staff_number").toString() : "";
-                                        Object staffIdObj = staff.get("staff_id");
-                                        Integer currentStaffId = staffIdObj instanceof Number ? ((Number) staffIdObj).intValue() : null;
-                                        
-                                        if (currentStaffId != null && currentStaffId.equals(staffId) && 
-                                            staffNumber.equals(currentStaffNumber)) {
-                                            staffTableModel.setValueAt("已分配", i, 4);
-                                            staffTableModel.setValueAt(batchResponsibility, i, 5);
-                                            staffTableModel.setValueAt(false, i, 0);
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // 记录日志
-                            HtmlLogger.logInfo(authService.getCurrentUserId(), authService.getCurrentRole(), 
-                                    "分配活动", "成功将" + assignedCount + "名员工分配到活动ID=" + activityId);
-                            
-                            // 显示结果摘要
-                            JOptionPane.showMessageDialog(assignmentDialog, 
-                                    "分配完成：成功 " + assignedCount + " 人", 
-                                    "分配结果", JOptionPane.INFORMATION_MESSAGE);
-                            
-                            // 刷新主界面的活动列表
-                            refreshActivityList();
-                        } else {
-                            JOptionPane.showMessageDialog(assignmentDialog, "没有选中可分配的员工", "提示", JOptionPane.INFORMATION_MESSAGE);
-                        }
-                        
-                    } catch (SQLException ex) {
-                        JOptionPane.showMessageDialog(assignmentDialog, "数据库错误: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
-                        HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
-                                "分配活动", "数据库异常: " + ex.getMessage());
-                    }
-                });
+                setupUnassignButtonListener(unassignButton, assignmentDialog, staffTableModel, allStaff, 
+                        activityId, worksForService);
                 
-                // 取消分配按钮事件处理
-                unassignButton.addActionListener(e -> {
-                    try {
-                        // 显示确认对话框
-                        int confirmResult = JOptionPane.showConfirmDialog(assignmentDialog,
-                                "确定要取消选中员工的活动分配吗？",
-                                "确认取消分配",
-                                JOptionPane.YES_NO_OPTION,
-                                JOptionPane.WARNING_MESSAGE);
-                        
-                        if (confirmResult != JOptionPane.YES_OPTION) {
-                            return; // 用户取消操作
-                        }
-                        
-                        // 收集选中的已分配员工
-                        int unassignedCount = 0;
-                        int failedCount = 0;
-                        
-                        for (int i = 0; i < staffTableModel.getRowCount(); i++) {
-                            Boolean isSelected = (Boolean) staffTableModel.getValueAt(i, 0);
-                            String status = (String) staffTableModel.getValueAt(i, 4);
-                            
-                            // 只处理选中且状态为已分配的员工
-                            if (Boolean.TRUE.equals(isSelected) && "已分配".equals(status)) {
-                                try {
-                                    // 从原始数据中找到对应的员工ID
-                                    String staffNumber = (String) staffTableModel.getValueAt(i, 2);
-                                    Integer staffId = null;
-                                    
-                                    for (Map<String, Object> staff : allStaff) {
-                                        String currentStaffNumber = staff.get("staff_number") != null ? 
-                                                staff.get("staff_number").toString() : "";
-                                        
-                                        if (staffNumber.equals(currentStaffNumber)) {
-                                            Object staffIdObj = staff.get("staff_id");
-                                            if (staffIdObj instanceof Number) {
-                                                staffId = ((Number) staffIdObj).intValue();
-                                            }
-                                            break;
-                                        }
-                                    }
-                                    
-                                    if (staffId != null) {
-                                        // 取消分配员工（软删除）
-                                        boolean success = worksForService.removeStaffFromActivityByStaffAndActivity(staffId, activityId);
-                                        
-                                        if (success) {
-                                            unassignedCount++;
-                                            // 更新表格中的状态
-                                            staffTableModel.setValueAt("空闲", i, 4);
-                                            staffTableModel.setValueAt("", i, 5); // 清空职责
-                                            staffTableModel.setValueAt(false, i, 0);
-                                            
-                                            HtmlLogger.logInfo(authService.getCurrentUserId(), authService.getCurrentRole(), 
-                                                    "分配活动", "成功将员工ID=" + staffId + "从活动ID=" + activityId + "移除");
-                                        } else {
-                                            failedCount++;
-                                            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
-                                                    "分配活动", "移除员工ID=" + staffId + "失败");
-                                        }
-                                    }
-                                } catch (Exception ex) {
-                                    failedCount++;
-                                    // 记录错误但继续处理其他员工
-                                    HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
-                                            "分配活动", "移除员工时出错: " + ex.getMessage());
-                                }
-                            }
-                        }
-                        
-                        if (unassignedCount > 0) {
-                            // 显示结果摘要
-                            String message = "取消分配完成：成功 " + unassignedCount + " 人";
-                            if (failedCount > 0) {
-                                message += "，失败 " + failedCount + " 人";
-                            }
-                            JOptionPane.showMessageDialog(assignmentDialog, message, "取消分配结果", JOptionPane.INFORMATION_MESSAGE);
-                            
-                            // 刷新主界面的活动列表
-                            refreshActivityList();
-                        } else if (failedCount > 0) {
-                            JOptionPane.showMessageDialog(assignmentDialog, 
-                                    "取消分配失败，请检查所选员工是否已被分配", "操作失败", JOptionPane.ERROR_MESSAGE);
-                        } else {
-                            JOptionPane.showMessageDialog(assignmentDialog, "未选择要取消分配的员工", "提示", JOptionPane.INFORMATION_MESSAGE);
-                        }
-                        
-                    } catch (Exception ex) {
-                        JOptionPane.showMessageDialog(assignmentDialog, "取消分配过程中出错: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
-                        HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
-                                "分配活动", "批量取消分配异常: " + ex.getMessage());
-                    }
-                });
-                
-                // 关闭按钮事件处理
                 cancelButton.addActionListener(e -> assignmentDialog.dispose());
                 
-                // 监听对话框关闭事件
+                // 显示对话框
                 assignmentDialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-                
-                // 居中显示对话框
                 assignmentDialog.setLocationRelativeTo(this);
                 assignmentDialog.setVisible(true);
                 
@@ -814,6 +508,392 @@ public class ActivityManagementPanel extends JPanel {
         } else {
             JOptionPane.showMessageDialog(this, "请先选择一个活动", "提示", JOptionPane.WARNING_MESSAGE);
         }
+    }
+    
+    /**
+     * 创建分配对话框
+     */
+    private JDialog createAssignmentDialog(Activity selectedActivity) {
+        JDialog dialog = new JDialog((Frame)SwingUtilities.getWindowAncestor(this), 
+                "员工分配 - " + selectedActivity.getTitle(), true);
+        dialog.setSize(700, 500);
+        dialog.setLayout(new BorderLayout());
+        return dialog;
+    }
+    
+    /**
+     * 创建员工表格模型
+     */
+    private DefaultTableModel createStaffTableModel() {
+        String[] columnNames = {"选择", "员工姓名", "员工编号", "角色", "状态", "职责描述"};
+        return new DefaultTableModel(columnNames, 0) {
+            @Override
+            public Class<?> getColumnClass(int column) {
+                return column == 0 ? Boolean.class : Object.class;
+            }
+            
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return column == 0 || column == 5;
+            }
+        };
+    }
+    
+    /**
+     * 配置表格列宽
+     */
+    private void configureStaffTable(JTable table) {
+        table.getColumnModel().getColumn(0).setMaxWidth(50);
+        table.getColumnModel().getColumn(5).setPreferredWidth(200); // 增加职责描述列宽度
+    }
+    
+    /**
+     * 创建底部面板
+     */
+    private JPanel createBottomPanel() {
+        JPanel bottomPanel = new JPanel(new BorderLayout());
+        
+        // 职责输入区域
+        JPanel responsibilityPanel = new JPanel(new BorderLayout());
+        responsibilityPanel.setBorder(BorderFactory.createTitledBorder("批量职责描述"));
+        JTextArea responsibilityArea = new JTextArea(2, 40);
+        responsibilityPanel.add(new JScrollPane(responsibilityArea), BorderLayout.CENTER);
+        
+        // 创建按钮面板
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton assignButton = new JButton("分配选中员工");
+        JButton unassignButton = new JButton("取消选中员工分配");
+        JButton cancelButton = new JButton("关闭");
+        buttonPanel.add(assignButton);
+        buttonPanel.add(unassignButton);
+        buttonPanel.add(cancelButton);
+        
+        // 组织底部面板
+        bottomPanel.add(responsibilityPanel, BorderLayout.NORTH);
+        bottomPanel.add(buttonPanel, BorderLayout.CENTER);
+        
+        return bottomPanel;
+    }
+    
+    /**
+     * 准备已分配员工数据
+     */
+    private void prepareAssignedStaffData(List<Map<String, Object>> assignedStaffDetails, 
+            Set<Integer> assignedStaffIds, Map<Integer, String> assignedStaffInfo) {
+        if (assignedStaffDetails != null) {
+            for (Map<String, Object> staff : assignedStaffDetails) {
+                try {
+                    // 使用Java驼峰命名获取数据
+                    Integer staffId = getIntegerValue(staff, "staffId");
+                    if (staffId != null) {
+                        assignedStaffIds.add(staffId);
+                        
+                        // 获取职责描述
+                        String responsibility = getStringValue(staff, "responsibility");
+                        assignedStaffInfo.put(staffId, responsibility);
+                    }
+                } catch (Exception e) {
+                    System.err.println("处理已分配员工数据错误: " + e.getMessage());
+                    continue;
+                }
+            }
+        }
+    }
+    
+    /**
+     * 加载员工数据到表格
+     */
+    private void loadStaffData(List<Map<String, Object>> allStaff, Set<Integer> assignedStaffIds, 
+            Map<Integer, String> assignedStaffInfo, DefaultTableModel tableModel, Map<Integer, Integer> staffIdToRowMap) {
+        int addedCount = 0;
+        
+        if (allStaff != null) {
+            for (Map<String, Object> staff : allStaff) {
+                try {
+                    // 获取员工ID
+                    Integer staffId = getIntegerValue(staff, "staffId");
+                    
+                    // 获取员工姓名
+                    String firstName = getStringValue(staff, "firstName");
+                    String lastName = getStringValue(staff, "lastName");
+                    String staffName = firstName + " " + lastName;
+                    
+                    // 获取员工编号
+                    String staffNumber = getStringValue(staff, "staffNumber");
+                    
+                    // 获取角色
+                    String role = getStringValue(staff, "roleId");
+                    
+                    // 检查分配状态
+                    boolean isAssigned = staffId != null && assignedStaffIds.contains(staffId);
+                    String status = isAssigned ? "已分配" : "空闲";
+                    String responsibility = isAssigned && staffId != null ? assignedStaffInfo.getOrDefault(staffId, "") : "";
+                    
+                    // 添加到表格
+                    int rowIndex = tableModel.getRowCount();
+                    tableModel.addRow(new Object[]{!isAssigned, staffName, staffNumber, role, status, responsibility});
+                    addedCount++;
+                    
+                    // 保存映射关系
+                    if (staffId != null) {
+                        staffIdToRowMap.put(staffId, rowIndex);
+                    }
+                } catch (Exception e) {
+                    System.err.println("添加员工到表格时出错: " + e.getMessage());
+                    continue;
+                }
+            }
+        }
+        
+        System.out.println("成功添加到表格的员工数量: " + addedCount);
+    }
+    
+    /**
+     * 设置分配按钮监听器
+     */
+    private void setupAssignButtonListener(JButton assignButton, JDialog dialog, JTextArea responsibilityArea, 
+            DefaultTableModel tableModel, List<Map<String, Object>> allStaff, Activity selectedActivity,
+            int activityId, WorksForService worksForService, Map<Integer, Integer> staffIdToRowMap) {
+        assignButton.addActionListener(e -> {
+            try {
+                String batchResponsibility = responsibilityArea.getText().trim();
+                if (batchResponsibility.isEmpty()) {
+                    JOptionPane.showMessageDialog(dialog, "请输入职责描述", "提示", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                
+                // 收集选中的员工ID
+                List<Integer> selectedStaffIds = collectSelectedStaffIds(tableModel, allStaff, worksForService, activityId);
+                
+                if (!selectedStaffIds.isEmpty()) {
+                    // 批量分配
+                    int assignedCount = worksForService.batchAddStaffToActivity(selectedStaffIds, activityId, batchResponsibility);
+                    
+                    // 更新表格状态
+                    updateStaffStatusAfterAssignment(tableModel, selectedStaffIds, allStaff, batchResponsibility);
+                    
+                    // 记录日志
+                    HtmlLogger.logInfo(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                            "分配活动", "成功将" + assignedCount + "名员工分配到活动ID=" + activityId);
+                    
+                    // 显示结果
+                    JOptionPane.showMessageDialog(dialog, 
+                            "分配完成：成功 " + assignedCount + " 人", 
+                            "分配结果", JOptionPane.INFORMATION_MESSAGE);
+                    
+                    // 刷新列表
+                    refreshActivityList();
+                } else {
+                    JOptionPane.showMessageDialog(dialog, "没有选中可分配的员工", "提示", JOptionPane.INFORMATION_MESSAGE);
+                }
+                
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(dialog, "数据库错误: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+                HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                        "分配活动", "数据库异常: " + ex.getMessage());
+            }
+        });
+    }
+    
+    /**
+     * 设置取消分配按钮监听器
+     */
+    private void setupUnassignButtonListener(JButton unassignButton, JDialog dialog, DefaultTableModel tableModel,
+            List<Map<String, Object>> allStaff, int activityId, WorksForService worksForService) {
+        unassignButton.addActionListener(e -> {
+            try {
+                // 确认对话框
+                int confirmResult = JOptionPane.showConfirmDialog(dialog,
+                        "确定要取消选中员工的活动分配吗？",
+                        "确认取消分配",
+                        JOptionPane.YES_NO_OPTION,
+                        JOptionPane.WARNING_MESSAGE);
+                
+                if (confirmResult != JOptionPane.YES_OPTION) {
+                    return;
+                }
+                
+                // 处理取消分配
+                int[] result = processUnassignment(tableModel, allStaff, activityId, worksForService);
+                int unassignedCount = result[0];
+                int failedCount = result[1];
+                
+                showUnassignmentResult(dialog, unassignedCount, failedCount);
+                
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dialog, "取消分配过程中出错: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+                HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                        "分配活动", "批量取消分配异常: " + ex.getMessage());
+            }
+        });
+    }
+    
+    /**
+     * 收集选中的员工ID
+     */
+    private List<Integer> collectSelectedStaffIds(DefaultTableModel tableModel, List<Map<String, Object>> allStaff,
+            WorksForService worksForService, int activityId) {
+        List<Integer> selectedStaffIds = new ArrayList<>();
+        
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            Boolean isSelected = (Boolean) tableModel.getValueAt(i, 0);
+            String status = (String) tableModel.getValueAt(i, 4);
+            
+            // 只处理选中且状态为空闲的员工
+            if (Boolean.TRUE.equals(isSelected) && "空闲".equals(status)) {
+                try {
+                    String staffNumber = (String) tableModel.getValueAt(i, 2);
+                    Integer staffId = findStaffIdByNumber(allStaff, staffNumber);
+                    
+                    if (staffId != null && !worksForService.isStaffInActivity(staffId, activityId)) {
+                        selectedStaffIds.add(staffId);
+                    }
+                } catch (Exception ex) {
+                    HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                            "分配活动", "处理员工时出错: " + ex.getMessage());
+                }
+            }
+        }
+        
+        return selectedStaffIds;
+    }
+    
+    /**
+     * 更新分配后的员工状态
+     */
+    private void updateStaffStatusAfterAssignment(DefaultTableModel tableModel, List<Integer> selectedStaffIds,
+            List<Map<String, Object>> allStaff, String responsibility) {
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            String staffNumber = (String) tableModel.getValueAt(i, 2);
+            Integer staffId = findStaffIdByNumber(allStaff, staffNumber);
+            
+            if (staffId != null && selectedStaffIds.contains(staffId)) {
+                tableModel.setValueAt("已分配", i, 4);
+                tableModel.setValueAt(responsibility, i, 5);
+                tableModel.setValueAt(false, i, 0);
+            }
+        }
+    }
+    
+    /**
+     * 处理取消分配
+     */
+    private int[] processUnassignment(DefaultTableModel tableModel, List<Map<String, Object>> allStaff,
+            int activityId, WorksForService worksForService) {
+        int unassignedCount = 0;
+        int failedCount = 0;
+        
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            Boolean isSelected = (Boolean) tableModel.getValueAt(i, 0);
+            String status = (String) tableModel.getValueAt(i, 4);
+            
+            // 只处理选中且状态为已分配的员工
+            if (Boolean.TRUE.equals(isSelected) && "已分配".equals(status)) {
+                try {
+                    String staffNumber = (String) tableModel.getValueAt(i, 2);
+                    Integer staffId = findStaffIdByNumber(allStaff, staffNumber);
+                    
+                    if (staffId != null) {
+                        boolean success = worksForService.removeStaffFromActivityByStaffAndActivity(staffId, activityId);
+                        
+                        if (success) {
+                            unassignedCount++;
+                            updateUnassignedStaffStatus(tableModel, i);
+                            
+                            HtmlLogger.logInfo(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                                    "分配活动", "成功将员工ID=" + staffId + "从活动ID=" + activityId + "移除");
+                        } else {
+                            failedCount++;
+                            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                                    "分配活动", "移除员工ID=" + staffId + "失败");
+                        }
+                    }
+                } catch (Exception ex) {
+                    failedCount++;
+                    HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                            "分配活动", "移除员工时出错: " + ex.getMessage());
+                }
+            }
+        }
+        
+        return new int[]{unassignedCount, failedCount};
+    }
+    
+    /**
+     * 更新取消分配后的员工状态
+     */
+    private void updateUnassignedStaffStatus(DefaultTableModel tableModel, int rowIndex) {
+        tableModel.setValueAt("空闲", rowIndex, 4);
+        tableModel.setValueAt("", rowIndex, 5); // 清空职责
+        tableModel.setValueAt(false, rowIndex, 0);
+    }
+    
+    /**
+     * 显示取消分配结果
+     */
+    private void showUnassignmentResult(JDialog dialog, int unassignedCount, int failedCount) {
+        if (unassignedCount > 0) {
+            String message = "取消分配完成：成功 " + unassignedCount + " 人";
+            if (failedCount > 0) {
+                message += "，失败 " + failedCount + " 人";
+            }
+            JOptionPane.showMessageDialog(dialog, message, "取消分配结果", JOptionPane.INFORMATION_MESSAGE);
+            refreshActivityList();
+        } else if (failedCount > 0) {
+            JOptionPane.showMessageDialog(dialog, 
+                    "取消分配失败，请检查所选员工是否已被分配", "操作失败", JOptionPane.ERROR_MESSAGE);
+        } else {
+            JOptionPane.showMessageDialog(dialog, "未选择要取消分配的员工", "提示", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+    
+    /**
+     * 根据员工编号查找员工ID
+     */
+    private Integer findStaffIdByNumber(List<Map<String, Object>> allStaff, String staffNumber) {
+        for (Map<String, Object> staff : allStaff) {
+            String currentStaffNumber = getStringValue(staff, "staffNumber");
+            if (staffNumber.equals(currentStaffNumber)) {
+                return getIntegerValue(staff, "staffId");
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * 获取整数值，支持不同的键名格式
+     */
+    private Integer getIntegerValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value == null) {
+            // 尝试下划线格式作为备份
+            String underscoreKey = key.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toLowerCase();
+            value = map.get(underscoreKey);
+        }
+        
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        } else if (value != null) {
+            try {
+                return Integer.parseInt(value.toString());
+            } catch (NumberFormatException e) {
+                System.err.println("无效的数字格式: " + value + " 用于键: " + key);
+            }
+        }
+        return null;
+    }
+    
+    /**
+     * 获取字符串值，支持不同的键名格式
+     */
+    private String getStringValue(Map<String, Object> map, String key) {
+        Object value = map.get(key);
+        if (value == null) {
+            // 尝试下划线格式作为备份
+            String underscoreKey = key.replaceAll("([a-z0-9])([A-Z])", "$1_$2").toLowerCase();
+            value = map.get(underscoreKey);
+        }
+        return value != null ? value.toString() : "";
     }
     
     private void updateActivityStatus() {
@@ -948,4 +1028,1094 @@ public class ActivityManagementPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "请先选择一个活动", "提示", JOptionPane.WARNING_MESSAGE);
         }
     }
+    
+    /**
+     * 查看人员分配情况
+     */
+    private void viewStaffAssignment() {
+        System.out.println("============================================");
+        System.out.println("用户点击查看人员分配按钮");
+        // 记录查看人员分配操作
+        HtmlLogger.logInfo(authService.getCurrentUserId(), authService.getCurrentRole(), "查看人员分配", "用户查看当前任务分配的人员和空闲人员");
+        
+        try {
+            System.out.println("创建人员分配对话框...");
+            // 创建对话框
+            JDialog assignmentDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), 
+                    "人员分配情况", true);
+            assignmentDialog.setSize(800, 600);
+            assignmentDialog.setLayout(new BorderLayout());
+            
+            System.out.println("创建选项卡面板...");
+            // 创建选项卡面板
+            JTabbedPane tabbedPane = new JTabbedPane();
+            
+            System.out.println("添加树状图选项卡...");
+            // 只添加树状图选项卡，包含已分配和空闲人员
+            tabbedPane.addTab("人员分配树状图", createStaffAssignmentTreePanel());
+            System.out.println("选项卡面板创建完成");
+            
+            assignmentDialog.add(tabbedPane, BorderLayout.CENTER);
+            
+            // 添加关闭按钮
+            System.out.println("添加对话框关闭按钮...");
+            JPanel buttonPanel = new JPanel();
+            JButton closeButton = new JButton("关闭");
+            closeButton.addActionListener(e -> {
+                System.out.println("用户点击关闭按钮，对话框即将关闭");
+                assignmentDialog.dispose();
+            });
+            buttonPanel.add(closeButton);
+            assignmentDialog.add(buttonPanel, BorderLayout.SOUTH);
+            
+            System.out.println("显示人员分配对话框...");
+            assignmentDialog.setLocationRelativeTo(this);
+            assignmentDialog.setVisible(true);
+            
+        } catch (SQLException ex) {
+            System.out.println("错误: 查询人员分配情况时发生错误 - " + ex.getMessage());
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "查询人员分配情况时发生错误: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), "查看人员分配", "查询失败: " + ex.getMessage());
+        }
+        System.out.println("人员分配查看操作完成");
+        System.out.println("============================================");
+    }
+    
+    /**
+     * 创建已分配人员面板
+     */
+    private JPanel createAssignedStaffPanel() throws SQLException {
+        System.out.println("开始创建已分配人员面板...");
+        JPanel panel = new JPanel(new BorderLayout());
+        
+        // 创建表格模型
+        System.out.println("初始化已分配人员表格模型...");
+        String[] columnNames = {"活动ID", "活动标题", "活动状态", "员工姓名", "员工编号", "职责描述", "分配时间"};
+        DefaultTableModel tableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+        
+        JTable table = new JTable(tableModel);
+        table.getColumnModel().getColumn(0).setPreferredWidth(50);
+        table.getColumnModel().getColumn(1).setPreferredWidth(200);
+        table.getColumnModel().getColumn(2).setPreferredWidth(80);
+        table.getColumnModel().getColumn(3).setPreferredWidth(100);
+        table.getColumnModel().getColumn(4).setPreferredWidth(80);
+        table.getColumnModel().getColumn(5).setPreferredWidth(150);
+        table.getColumnModel().getColumn(6).setPreferredWidth(120);
+        
+        // 查询已分配人员数据
+        System.out.println("查询已分配人员数据...");
+        WorksForService worksForService = WorksForService.getInstance();
+        List<Map<String, Object>> assignedStaffData = worksForService.queryWorksFor(null);
+        System.out.println("获取到 " + assignedStaffData.size() + " 条人员分配记录");
+        
+        int addedCount = 0;
+        for (Map<String, Object> data : assignedStaffData) {
+            if ("Y".equals(data.get("activeFlag"))) {
+                String activityId = data.get("activityId") != null ? data.get("activityId").toString() : "-";
+                String activityTitle = data.get("title") != null ? data.get("title").toString() : "-";
+                String staffName = data.get("staffName") != null ? data.get("staffName").toString() : "-";
+               
+                
+                System.out.println("处理人员分配记录: 活动ID=" + activityId + ", 员工姓名=" + staffName);
+                
+                // 获取活动状态
+                String activityStatus = "-";
+                try {
+                    Map<String, Object> conditions = new HashMap<>();
+                    conditions.put("activityId", Integer.parseInt(activityId)); 
+                    List<Map<String, Object>> activityResults = activityService.queryActivities(conditions);
+                    if (!activityResults.isEmpty()) {
+                        Map<String, Object> activityData = activityResults.get(0);
+                        activityStatus = activityData.get("status") != null ? activityData.get("status").toString() : "-";
+                        System.out.println("  活动状态: " + activityStatus);
+                    }
+                } catch (Exception e) {
+                    System.out.println("  获取活动状态失败: " + e.getMessage());
+                }
+                
+                // 获取员工编号
+                String staffNumber = "-";
+                try {
+                        int staffId = Integer.parseInt(data.get("staffId").toString());
+                        StaffService staffService = StaffService.getInstance();
+                        Map<String, Object> staffData = staffService.getStaffById(staffId);
+                    if (staffData != null) {
+                        staffNumber = staffData.get("staffNumber") != null ? staffData.get("staffNumber").toString() : "-";
+                        System.out.println("  员工编号: " + staffNumber);
+                    }
+                } catch (Exception e) {
+                    System.out.println("  获取员工编号失败: " + e.getMessage());
+                }
+                
+                String responsibility = data.get("activityResponsibility") != null ? data.get("activityResponsibility").toString() : "-";
+                System.out.println("  职责描述: " + responsibility);
+                
+                String assignedTime = "-";
+                if (data.get("assignedDatetime") != null) {
+                    if (data.get("assignedDatetime") instanceof Date) {
+                        assignedTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((Date) data.get("assignedDatetime"));
+                    } else {
+                        assignedTime = data.get("assignedDatetime").toString();
+                    }
+                    System.out.println("  分配时间: " + assignedTime);
+                }
+                
+                tableModel.addRow(new Object[]{activityId, activityTitle, activityStatus, staffName, staffNumber, responsibility, assignedTime});
+                addedCount++;
+            }
+        }
+        System.out.println("已添加 " + addedCount + " 条活跃的人员分配记录到表格中");
+        
+        panel.add(new JScrollPane(table), BorderLayout.CENTER);
+        
+        // 添加统计信息
+        int totalAssigned = tableModel.getRowCount();
+        System.out.println("已分配人员统计: " + totalAssigned + " 个记录");
+        JLabel statsLabel = new JLabel("总计: " + totalAssigned + " 个人员分配记录");
+        JPanel statsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        statsPanel.add(statsLabel);
+        panel.add(statsPanel, BorderLayout.NORTH);
+        
+        System.out.println("已分配人员面板创建完成");
+        return panel;
+    }
+    
+    /**
+     * 创建人员分配树状图面板，包含已分配和空闲两个模块
+     */
+    private JPanel createStaffAssignmentTreePanel() throws SQLException {
+        System.out.println("开始创建人员分配树状图面板...");
+        JPanel panel = new JPanel(new BorderLayout());
+        
+        // 创建根节点
+        DefaultMutableTreeNode rootNode = new DefaultMutableTreeNode("人员分配概览");
+        
+        // 创建已分配人员模块节点
+        DefaultMutableTreeNode assignedStaffNode = new DefaultMutableTreeNode("已分配人员");
+        rootNode.add(assignedStaffNode);
+        
+        // 创建空闲人员模块节点
+        DefaultMutableTreeNode availableStaffNode = new DefaultMutableTreeNode("空闲人员");
+        rootNode.add(availableStaffNode);
+        
+        // 加载已分配人员数据
+        loadAssignedStaffData(assignedStaffNode);
+        
+        // 加载空闲人员数据
+        loadAvailableStaffData(availableStaffNode);
+        
+        // 创建树模型和树组件
+        DefaultTreeModel treeModel = new DefaultTreeModel(rootNode);
+        JTree tree = new JTree(treeModel);
+        tree.setShowsRootHandles(true);
+        tree.setRootVisible(true);
+        
+        // 展开所有节点
+        expandAllNodes(tree, 0, tree.getRowCount());
+        
+        // 添加到滚动面板
+        JScrollPane scrollPane = new JScrollPane(tree);
+        panel.add(scrollPane, BorderLayout.CENTER);
+        
+        // 添加统计信息
+        JLabel statsLabel = new JLabel("树状图显示：已分配人员和空闲人员两个模块");
+        JPanel statsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        statsPanel.add(statsLabel);
+        panel.add(statsPanel, BorderLayout.NORTH);
+        
+        System.out.println("人员分配树状图面板创建完成");
+        return panel;
+    }
+    
+    /**
+     * 加载已分配人员数据
+     */
+    private void loadAssignedStaffData(DefaultMutableTreeNode parentNode) throws SQLException {
+        System.out.println("开始加载已分配人员数据...");
+        
+        // 查询所有已分配人员数据
+        WorksForService worksForService = WorksForService.getInstance();
+        List<Map<String, Object>> assignedStaffData = worksForService.queryWorksFor(null);
+        
+        // 按员工分组任务
+        Map<Integer, List<Map<String, Object>>> staffTasksMap = new HashMap<>();
+        
+        for (Map<String, Object> data : assignedStaffData) {
+            if ("Y".equals(data.get("activeFlag"))) {
+                int staffId = Integer.parseInt(data.get("staffId").toString());
+                
+                if (!staffTasksMap.containsKey(staffId)) {
+                    staffTasksMap.put(staffId, new ArrayList<>());
+                }
+                staffTasksMap.get(staffId).add(data);
+            }
+        }
+        
+        // 创建员工节点及其任务子节点
+        StaffService staffService = StaffService.getInstance();
+        for (Map.Entry<Integer, List<Map<String, Object>>> entry : staffTasksMap.entrySet()) {
+            int staffId = entry.getKey();
+            List<Map<String, Object>> tasks = entry.getValue();
+            
+            // 获取员工信息
+            Map<String, Object> staffData = staffService.getStaffById(staffId);
+            if (staffData != null) {
+                // 创建员工节点
+                DefaultMutableTreeNode staffNode = createStaffAssignmentNode(staffData, tasks.size());
+                
+                // 为每个员工添加任务节点
+                for (Map<String, Object> task : tasks) {
+                    DefaultMutableTreeNode taskNode = createTaskNode(task);
+                    staffNode.add(taskNode);
+                }
+                
+                parentNode.add(staffNode);
+            }
+        }
+        
+        System.out.println("已分配人员数据加载完成，共" + staffTasksMap.size() + "个人员节点");
+    }
+    
+    /**
+     * 加载空闲人员数据
+     */
+    private void loadAvailableStaffData(DefaultMutableTreeNode parentNode) throws SQLException {
+        System.out.println("开始加载空闲人员数据...");
+        
+        // 查询所有员工
+        StaffService staffService = StaffService.getInstance();
+        List<Map<String, Object>> allStaff = staffService.queryStaff(new HashMap<>());
+        
+        // 查询已分配人员ID
+        WorksForService worksForService = WorksForService.getInstance();
+        List<Map<String, Object>> assignedStaffData = worksForService.queryWorksFor(null);
+        Set<Integer> assignedStaffIds = new HashSet<>();
+        
+        for (Map<String, Object> data : assignedStaffData) {
+            if ("Y".equals(data.get("activeFlag"))) {
+                int staffId = Integer.parseInt(data.get("staffId").toString());
+                assignedStaffIds.add(staffId);
+            }
+        }
+        
+        // 创建空闲人员节点
+        int availableCount = 0;
+        for (Map<String, Object> staffData : allStaff) {
+            if ("Y".equals(staffData.get("activeFlag"))) {
+                int staffId = 0;
+                try {
+                    staffId = Integer.parseInt(staffData.get("staffId").toString());
+                    if (!assignedStaffIds.contains(staffId)) {
+                        // 创建空闲员工节点
+                        DefaultMutableTreeNode staffNode = createStaffAssignmentNode(staffData, 0);
+                        parentNode.add(staffNode);
+                        availableCount++;
+                    }
+                } catch (Exception e) {
+                    System.out.println("处理员工数据失败: " + e.getMessage());
+                    continue;
+                }
+            }
+        }
+        
+        System.out.println("空闲人员数据加载完成，共" + availableCount + "个空闲人员节点");
+    }
+    
+    /**
+     * 创建员工节点，显示任务数量
+     */
+    private DefaultMutableTreeNode createStaffAssignmentNode(Map<String, Object> staffData, int taskCount) {
+        String staffFirstName = staffData.get("firstName") != null ? staffData.get("firstName").toString() : "";
+        String staffLastName = staffData.get("lastName") != null ? staffData.get("lastName").toString() : "";
+        String staffName = staffFirstName + staffLastName;
+        String staffNumber = staffData.get("staffNumber") != null ? staffData.get("staffNumber").toString() : "";
+        String roleName = staffData.get("roleName") != null ? staffData.get("roleName").toString() : "";
+        
+        String nodeText = staffName + " (" + staffNumber + ") - " + roleName;
+        if (taskCount > 0) {
+            nodeText += " [" + taskCount + "个任务]";
+        } else {
+            nodeText += " [无任务]";
+        }
+        return new DefaultMutableTreeNode(nodeText);
+    }
+    
+    /**
+     * 创建任务节点，展示活动相关字段
+     */
+    private DefaultMutableTreeNode createTaskNode(Map<String, Object> taskData) {
+        StringBuilder nodeText = new StringBuilder();
+        
+        // 获取活动基本信息
+        String activityTitle = taskData.get("title") != null ? taskData.get("title").toString() : "未命名活动";
+        String activityId = taskData.get("activityId") != null ? taskData.get("activityId").toString() : "";
+        
+        // 构建任务节点文本
+        nodeText.append("活动: ").append(activityTitle).append(" (ID: ").append(activityId).append(")\n");
+        
+        // 添加职责描述
+        String responsibility = taskData.get("activityResponsibility") != null ? taskData.get("activityResponsibility").toString() : "无";
+        nodeText.append("职责: ").append(responsibility).append("\n");
+        
+        // 添加分配时间
+        if (taskData.get("assignedDatetime") != null) {
+            String assignedTime = taskData.get("assignedDatetime") instanceof Date ?
+                new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((Date) taskData.get("assignedDatetime")) :
+                taskData.get("assignedDatetime").toString();
+            nodeText.append("分配时间: ").append(assignedTime);
+        }
+        
+        return new DefaultMutableTreeNode(nodeText.toString());
+    }
+    
+    /**
+     * 展开树的所有节点
+     */
+    private void expandAllNodes(JTree tree, int startingIndex, int rowCount) {
+        for (int i = startingIndex; i < rowCount; ++i) {
+            tree.expandRow(i);
+        }
+        
+        if (tree.getRowCount() != rowCount) {
+            expandAllNodes(tree, rowCount, tree.getRowCount());
+        }
+    }
+    
+    /**
+     * 创建空闲人员面板
+     */
+
+    
+    /**
+     * 查看因任务导致不可用的地点
+     */
+    private void viewUnavailableLocations() {
+        // 记录查看不可用地点操作
+        HtmlLogger.logInfo(authService.getCurrentUserId(), authService.getCurrentRole(), "查看不可用地点", "用户查看因任务导致不可用的地点");
+        
+        try {
+            // 创建对话框
+            JDialog locationDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), 
+                    "不可用地点", true);
+            locationDialog.setSize(900, 700);
+            locationDialog.setLayout(new BorderLayout());
+            
+            // 创建筛选面板
+            JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+            filterPanel.setBorder(BorderFactory.createTitledBorder("筛选条件"));
+            
+            // 地点类型筛选
+            JLabel typeLabel = new JLabel("地点类型:");
+            JComboBox<String> typeComboBox = new JComboBox<>(new String[]{"全部", "building", "room", "level", "square", "gate", "canteen"});
+            
+            // 时间段筛选
+            JLabel timeRangeLabel = new JLabel("查看时间段:");
+            JComboBox<String> timeRangeComboBox = new JComboBox<>(new String[]{
+                "现在及未来", "仅现在", "未来24小时", "未来7天", "自定义"
+            });
+            
+            // 刷新按钮
+            JButton refreshButton = new JButton("刷新");
+            
+            filterPanel.add(typeLabel);
+            filterPanel.add(typeComboBox);
+            filterPanel.add(timeRangeLabel);
+            filterPanel.add(timeRangeComboBox);
+            filterPanel.add(refreshButton);
+            
+            // 创建表格模型
+            String[] columnNames = {"活动ID", "活动标题", "活动类型", "活动状态", "不可用地点", "地点类型", "开始时间", "预计结束时间", "冲突原因"};
+            DefaultTableModel tableModel = new DefaultTableModel(columnNames, 0) {
+                @Override
+                public boolean isCellEditable(int row, int column) {
+                    return false;
+                }
+                
+                @Override
+                public Class<?> getColumnClass(int column) {
+                    // 设置时间列可以排序
+                    if (column == 6 || column == 7) {
+                        return Date.class;
+                    }
+                    return super.getColumnClass(column);
+                }
+            };
+            
+            JTable table = new JTable(tableModel);
+            table.setAutoCreateRowSorter(true); // 启用排序
+            
+            // 设置列宽
+            table.getColumnModel().getColumn(0).setPreferredWidth(60);
+            table.getColumnModel().getColumn(1).setPreferredWidth(200);
+            table.getColumnModel().getColumn(2).setPreferredWidth(80);
+            table.getColumnModel().getColumn(3).setPreferredWidth(80);
+            table.getColumnModel().getColumn(4).setPreferredWidth(150);
+            table.getColumnModel().getColumn(5).setPreferredWidth(80);
+            table.getColumnModel().getColumn(6).setPreferredWidth(120);
+            table.getColumnModel().getColumn(7).setPreferredWidth(120);
+            table.getColumnModel().getColumn(8).setPreferredWidth(120);
+            
+            // 添加表头渲染器，使表头居中
+            DefaultTableCellRenderer headerRenderer = new DefaultTableCellRenderer();
+            headerRenderer.setHorizontalAlignment(JLabel.CENTER);
+            for (int i = 0; i < table.getColumnCount(); i++) {
+                table.getTableHeader().getColumnModel().getColumn(i).setHeaderRenderer(headerRenderer);
+            }
+            
+            // 添加表格监听器，双击可以查看活动详情
+            table.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    if (e.getClickCount() == 2) {
+                        int selectedRow = table.getSelectedRow();
+                        if (selectedRow >= 0) {
+                            String activityId = table.getValueAt(selectedRow, 0).toString();
+                            // 查找对应的活动并显示详情
+                            try {
+                                Map<String, Object> conditions = new HashMap<>();
+                                conditions.put("activityId", activityId);
+                                List<Map<String, Object>> activities = activityService.queryActivities(conditions);
+                                if (!activities.isEmpty()) {
+                                    showActivityDetailDialog(activities.get(0));
+                                }
+                            } catch (SQLException ex) {
+                                JOptionPane.showMessageDialog(locationDialog, 
+                                        "获取活动详情失败: " + ex.getMessage(), 
+                                        "错误", JOptionPane.ERROR_MESSAGE);
+                            }
+                        }
+                    }
+                }
+            });
+            
+            JScrollPane scrollPane = new JScrollPane(table);
+            
+            // 添加统计信息
+            JPanel statsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            JLabel statsLabel = new JLabel("总计: 0 个不可用地点");
+            statsPanel.add(statsLabel);
+            
+            // 顶部面板：筛选条件和统计信息
+            JPanel topPanel = new JPanel(new BorderLayout());
+            topPanel.add(filterPanel, BorderLayout.NORTH);
+            topPanel.add(statsPanel, BorderLayout.SOUTH);
+            
+            // 添加关闭按钮
+            JPanel buttonPanel = new JPanel();
+            JButton closeButton = new JButton("关闭");
+            closeButton.addActionListener(e -> locationDialog.dispose());
+            buttonPanel.add(closeButton);
+            
+            // 添加导出按钮
+            JButton exportButton = new JButton("导出数据");
+            exportButton.addActionListener(e -> exportTableData(table, tableModel));
+            buttonPanel.add(exportButton);
+            
+            // 添加到对话框
+            locationDialog.add(topPanel, BorderLayout.NORTH);
+            locationDialog.add(scrollPane, BorderLayout.CENTER);
+            locationDialog.add(buttonPanel, BorderLayout.SOUTH);
+            
+            // 刷新数据的方法
+            Runnable loadData = () -> {
+                try {
+                    tableModel.setRowCount(0); // 清空表格
+                    
+                    // 构建查询条件
+                    Map<String, Object> conditions = new HashMap<>();
+                    String selectedType = (String) typeComboBox.getSelectedItem();
+                    if (!"全部".equals(selectedType)) {
+                        conditions.put("facilityType", selectedType);
+                    }
+                    
+                    // 查询所有活跃的活动，不仅仅是进行中的
+                    conditions.put("active_flag", "Y");
+                    
+                    String timeRange = (String) timeRangeComboBox.getSelectedItem();
+                    LocalDateTime now = LocalDateTime.now();
+                    LocalDateTime endTimeFilter = now.plusYears(1); // 默认一年
+                    
+                    // 在查询前设置时间相关条件
+                    switch (timeRange) {
+                        case "仅现在":
+                            // 只显示进行中的活动
+                            conditions.put("status", "进行中");
+                            break;
+                        case "未来24小时":
+                            endTimeFilter = now.plusHours(24);
+                            break;
+                        case "未来7天":
+                            endTimeFilter = now.plusDays(7);
+                            break;
+                    }
+                    
+                    // 在设置完所有条件后进行查询
+                    List<Map<String, Object>> activeActivities = activityService.queryActivities(conditions);
+                    
+                    for (Map<String, Object> activity : activeActivities) {
+                        String activityId = activity.get("activityId") != null ? activity.get("activityId").toString() : "-";
+                        String title = activity.get("title") != null ? activity.get("title").toString() : "-";
+                        String type = activity.get("activityType") != null ? activity.get("activityType").toString() : "-";
+                        String status = activity.get("status") != null ? activity.get("status").toString() : "-";
+                        String facilityType = activity.get("facilityType") != null ? activity.get("facilityType").toString() : "-";
+                        
+                        // 确定不可用地点
+                        String location = "-";
+                        try {
+                            // 根据不同的设施类型查询地点信息
+                            if ("building".equals(facilityType) && activity.get("buildingId") != null) {
+                                int buildingId = Integer.parseInt(activity.get("buildingId").toString());
+                                location = getBuildingInfo(buildingId);
+                            } else if ("room".equals(facilityType) && activity.get("roomId") != null) {
+                                int roomId = Integer.parseInt(activity.get("roomId").toString());
+                                location = getRoomInfo(roomId);
+                            } else if ("level".equals(facilityType) && activity.get("levelId") != null) {
+                                int levelId = Integer.parseInt(activity.get("levelId").toString());
+                                location = getLevelInfo(levelId);
+                            } else if ("square".equals(facilityType) && activity.get("squareId") != null) {
+                                int squareId = Integer.parseInt(activity.get("squareId").toString());
+                                location = getSquareInfo(squareId);
+                            } else if ("gate".equals(facilityType) && activity.get("gateId") != null) {
+                                int gateId = Integer.parseInt(activity.get("gateId").toString());
+                                location = getGateInfo(gateId);
+                            } else if ("canteen".equals(facilityType) && activity.get("canteenId") != null) {
+                                int canteenId = Integer.parseInt(activity.get("canteenId").toString());
+                                location = getCanteenInfo(canteenId);
+                            }
+                        } catch (Exception e) {
+                            // 记录异常
+                        }
+                        
+                        // 处理时间显示
+                        String startTimeStr = "-";
+                        String endTimeStr = "-";
+                        Date startTimeDate = null;
+                        Date endTimeDate = null;
+                        boolean isWithinTimeRange = true;
+                        
+                        Object datetimeObj = activity.get("activityDatetime");
+                        if (datetimeObj != null) {
+                            LocalDateTime startTime = null;
+                            LocalDateTime endTime = null;
+                            
+                            // 处理不同类型的日期对象
+                            if (datetimeObj instanceof LocalDateTime) {
+                                startTime = (LocalDateTime) datetimeObj;
+                            } else if (datetimeObj instanceof Date) {
+                                startTime = ((Date) datetimeObj).toInstant()
+                                        .atZone(ZoneId.systemDefault())
+                                        .toLocalDateTime();
+                            } else if (datetimeObj instanceof String) {
+                                // 尝试解析字符串类型的日期
+                                try {
+                                    // 假设字符串格式为yyyy-MM-dd HH:mm:ss或类似格式
+                                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                                    startTime = LocalDateTime.parse(datetimeObj.toString(), formatter);
+                                } catch (Exception e) {
+                                    // 忽略解析异常
+                                }
+                            }
+                            
+                            if (startTime != null) {
+                                // 计算结束时间
+                                if (activity.get("expectedUnavailableDuration") != null) {
+                                    try {
+                                        int minutes = Integer.parseInt(activity.get("expectedUnavailableDuration").toString());
+                                        endTime = startTime.plusMinutes(minutes);
+                                    } catch (Exception e) {
+                                        // 忽略异常
+                                    }
+                                }
+                                
+                                // 格式化时间显示
+                                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+                                startTimeStr = startTime.format(formatter);
+                                endTimeStr = endTime != null ? endTime.format(formatter) : "未设置";
+                                
+                                // 转换为Date对象用于排序
+                                startTimeDate = Date.from(startTime.atZone(ZoneId.systemDefault()).toInstant());
+                                endTimeDate = endTime != null ? Date.from(endTime.atZone(ZoneId.systemDefault()).toInstant()) : null;
+                                
+                                // 检查是否在时间范围内 - 修正筛选条件
+                                if (!"仅现在".equals(timeRange)) {
+                                    isWithinTimeRange = startTime.isBefore(endTimeFilter);
+                                }
+                            } else {
+                                // 如果无法解析时间，也将其视为在时间范围内（避免丢失数据）
+                                isWithinTimeRange = true;
+                            }
+                        }
+                        
+                        // 冲突原因
+                        String conflictReason = "进行中活动";
+                        if ("计划中".equals(status)) {
+                            conflictReason = "已计划活动";
+                        } else if ("暂停中".equals(status)) {
+                            conflictReason = "暂停中活动";
+                        }
+                        
+                        // 只添加在时间范围内的活动，并确保类型一致性
+                        if (isWithinTimeRange) {
+                            // 确保时间列的数据类型一致性 - 当日期为null时也添加null而不是字符串
+                            tableModel.addRow(new Object[]{
+                                activityId, title, type, status, location, facilityType,
+                                startTimeDate, // null或Date对象
+                                endTimeDate, // null或Date对象
+                                conflictReason
+                            });
+                        }
+                    }
+                    
+                    // 更新统计信息
+                    int totalUnavailable = tableModel.getRowCount();
+                    statsLabel.setText("总计: " + totalUnavailable + " 个不可用地点");
+                    
+                } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(locationDialog, 
+                            "查询不可用地点时发生错误: " + ex.getMessage(), 
+                            "错误", JOptionPane.ERROR_MESSAGE);
+                    HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                            "查看不可用地点", "查询失败: " + ex.getMessage());
+                }
+            };
+            
+            // 添加刷新按钮监听器
+            refreshButton.addActionListener(e -> loadData.run());
+            
+            // 初始加载数据
+            loadData.run();
+            
+            locationDialog.setLocationRelativeTo(this);
+            locationDialog.setVisible(true);
+            
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "查看不可用地点时发生错误: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), "查看不可用地点", "操作失败: " + ex.getMessage());
+        }
+    }
+    
+    /**
+     * 获取建筑物信息
+     */
+    private String getBuildingInfo(int buildingId) {
+        try {
+            String sql = "SELECT building_code, building_name FROM buildings WHERE building_id = ?";
+            List<Map<String, Object>> results = executeQuery(sql, buildingId);
+            if (!results.isEmpty()) {
+                Map<String, Object> building = results.get(0);
+                String code = building.get("building_code") != null ? building.get("building_code").toString() : "";
+                String name = building.get("building_name") != null ? building.get("building_name").toString() : "";
+                return code + " - " + name;
+            }
+            return "未知建筑物";
+        } catch (Exception e) {
+            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                    "获取建筑物信息", "查询失败: " + e.getMessage());
+            return "未知建筑物";
+        }
+    }
+    
+    /**
+     * 获取房间信息
+     */
+    private String getRoomInfo(int roomId) {
+        try {
+            String sql = "SELECT name FROM rooms WHERE room_id = ?";
+            List<Map<String, Object>> results = executeQuery(sql, roomId);
+            if (!results.isEmpty()) {
+                Map<String, Object> room = results.get(0);
+                String name = room.get("name") != null ? room.get("name").toString() : "";
+                return "房间: " + name;
+            }
+            return "未知房间";
+        } catch (Exception e) {
+            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                    "获取房间信息", "查询失败: " + e.getMessage());
+            return "未知房间";
+        }
+    }
+    
+    /**
+     * 获取楼层信息
+     */
+    private String getLevelInfo(int levelId) {
+        try {
+            String sql = "SELECT level_number, building_id FROM levels WHERE level_id = ?";
+            List<Map<String, Object>> results = executeQuery(sql, levelId);
+            if (!results.isEmpty()) {
+                Map<String, Object> level = results.get(0);
+                String levelNumber = level.get("level_number") != null ? level.get("level_number").toString() : "";
+                String buildingCode = "";
+                
+                if (level.get("building_id") != null) {
+                    try {
+                        int buildingId = Integer.parseInt(level.get("building_id").toString());
+                        String buildingSql = "SELECT building_code FROM buildings WHERE building_id = ?";
+                        List<Map<String, Object>> buildingResults = executeQuery(buildingSql, buildingId);
+                        if (!buildingResults.isEmpty()) {
+                            buildingCode = buildingResults.get(0).get("building_code") != null ? 
+                                    buildingResults.get(0).get("building_code").toString() : "";
+                        }
+                    } catch (Exception e) {
+                        HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                                "获取楼层建筑信息", "查询失败: " + e.getMessage());
+                    }
+                }
+                return buildingCode + "-" + levelNumber + "楼";
+            }
+            return "未知楼层";
+        } catch (Exception e) {
+            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                    "获取楼层信息", "查询失败: " + e.getMessage());
+            return "未知楼层";
+        }
+    }
+    
+    /**
+     * 获取广场信息
+     */
+    private String getSquareInfo(int squareId) {
+        try {
+            String sql = "SELECT name FROM squares WHERE square_id = ?";
+            List<Map<String, Object>> results = executeQuery(sql, squareId);
+            if (!results.isEmpty()) {
+                Map<String, Object> square = results.get(0);
+                String name = square.get("name") != null ? square.get("name").toString() : "";
+                return "广场: " + name;
+            }
+            return "未知广场";
+        } catch (Exception e) {
+            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                    "获取广场信息", "查询失败: " + e.getMessage());
+            return "未知广场";
+        }
+    }
+    
+    /**
+     * 获取大门信息
+     */
+    private String getGateInfo(int gateId) {
+        try {
+            String sql = "SELECT name FROM gates WHERE gate_id = ?";
+            List<Map<String, Object>> results = executeQuery(sql, gateId);
+            if (!results.isEmpty()) {
+                Map<String, Object> gate = results.get(0);
+                String name = gate.get("name") != null ? gate.get("name").toString() : "";
+                return "大门: " + name;
+            }
+            return "未知大门";
+        } catch (Exception e) {
+            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                    "获取大门信息", "查询失败: " + e.getMessage());
+            return "未知大门";
+        }
+    }
+    
+    /**
+     * 获取食堂信息
+     */
+    private String getCanteenInfo(int canteenId) {
+        try {
+            String sql = "SELECT name FROM canteens WHERE canteen_id = ?";
+            List<Map<String, Object>> results = executeQuery(sql, canteenId);
+            if (!results.isEmpty()) {
+                Map<String, Object> canteen = results.get(0);
+                String name = canteen.get("name") != null ? canteen.get("name").toString() : "";
+                return "食堂: " + name;
+            }
+            return "未知食堂";
+        } catch (Exception e) {
+            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                    "获取食堂信息", "查询失败: " + e.getMessage());
+            return "未知食堂";
+        }
+    }
+    
+    /**
+     * 执行SQL查询的辅助方法 - 使用活动服务类执行查询
+     */
+    private List<Map<String, Object>> executeQuery(String sql, Object... params) throws SQLException {
+        // 创建参数映射
+        Map<String, Object> queryParams = new HashMap<>();
+        // 这里简单处理，实际应该根据SQL语句和参数创建适合的查询条件
+        for (int i = 0; i < params.length; i++) {
+            queryParams.put("param" + i, params[i]);
+        }
+        
+        // 根据SQL语句的表名决定使用哪个服务来查询
+        if (sql.toLowerCase().contains("buildings")) {
+            // 使用建筑物服务查询
+            return getBuildingData(sql, params);
+        } else if (sql.toLowerCase().contains("rooms")) {
+            // 使用房间服务查询
+            return getRoomData(sql, params);
+        } else if (sql.toLowerCase().contains("levels")) {
+            // 使用楼层服务查询
+            return getLevelData(sql, params);
+        } else if (sql.toLowerCase().contains("squares")) {
+            // 使用广场服务查询
+            return getSquareData(sql, params);
+        } else if (sql.toLowerCase().contains("gates")) {
+            // 使用大门服务查询
+            return getGateData(sql, params);
+        } else if (sql.toLowerCase().contains("canteens")) {
+            // 使用食堂服务查询
+            return getCanteenData(sql, params);
+        }
+        
+        return new ArrayList<>();
+    }
+    
+    // 以下是各个地点类型的数据查询方法
+    private List<Map<String, Object>> getBuildingData(String sql, Object[] params) throws SQLException {
+        List<Map<String, Object>> results = new ArrayList<>();
+        // 简单实现 - 实际应该调用对应的BuildingService
+        if (params.length > 0) {
+            int buildingId = Integer.parseInt(params[0].toString());
+            Map<String, Object> buildingData = new HashMap<>();
+            buildingData.put("building_code", "B" + buildingId);
+            buildingData.put("building_name", "Building " + buildingId);
+            results.add(buildingData);
+        }
+        return results;
+    }
+    
+    private List<Map<String, Object>> getRoomData(String sql, Object[] params) throws SQLException {
+        List<Map<String, Object>> results = new ArrayList<>();
+        if (params.length > 0) {
+            int roomId = Integer.parseInt(params[0].toString());
+            Map<String, Object> roomData = new HashMap<>();
+            roomData.put("name", "Room " + roomId);
+            results.add(roomData);
+        }
+        return results;
+    }
+    
+    private List<Map<String, Object>> getLevelData(String sql, Object[] params) throws SQLException {
+        List<Map<String, Object>> results = new ArrayList<>();
+        if (params.length > 0) {
+            int levelId = Integer.parseInt(params[0].toString());
+            Map<String, Object> levelData = new HashMap<>();
+            levelData.put("level_number", levelId);
+            levelData.put("building_id", 1); // 假设默认建筑ID
+            results.add(levelData);
+        }
+        return results;
+    }
+    
+    private List<Map<String, Object>> getSquareData(String sql, Object[] params) throws SQLException {
+        List<Map<String, Object>> results = new ArrayList<>();
+        if (params.length > 0) {
+            int squareId = Integer.parseInt(params[0].toString());
+            Map<String, Object> squareData = new HashMap<>();
+            squareData.put("name", "Square " + squareId);
+            results.add(squareData);
+        }
+        return results;
+    }
+    
+    private List<Map<String, Object>> getGateData(String sql, Object[] params) throws SQLException {
+        List<Map<String, Object>> results = new ArrayList<>();
+        if (params.length > 0) {
+            int gateId = Integer.parseInt(params[0].toString());
+            Map<String, Object> gateData = new HashMap<>();
+            gateData.put("name", "Gate " + gateId);
+            results.add(gateData);
+        }
+        return results;
+    }
+    
+    private List<Map<String, Object>> getCanteenData(String sql, Object[] params) throws SQLException {
+        List<Map<String, Object>> results = new ArrayList<>();
+        if (params.length > 0) {
+            int canteenId = Integer.parseInt(params[0].toString());
+            Map<String, Object> canteenData = new HashMap<>();
+            canteenData.put("name", "Canteen " + canteenId);
+            results.add(canteenData);
+        }
+        return results;
+    }
+    
+    // 导出表格数据为CSV文件
+    private void exportTableData(JTable table, DefaultTableModel tableModel) {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("导出数据");
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+        
+        // 设置默认文件名
+        String defaultFileName = "不可用地点_" + 
+                new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date()) + ".csv";
+        fileChooser.setSelectedFile(new File(defaultFileName));
+        
+        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+            // 确保文件扩展名为CSV
+            if (!file.getName().toLowerCase().endsWith(".csv")) {
+                file = new File(file.getAbsolutePath() + ".csv");
+            }
+            
+            try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
+                // 写入表头
+                for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                    writer.print('"' + tableModel.getColumnName(i) + '"');
+                    if (i < tableModel.getColumnCount() - 1) {
+                        writer.print(",");
+                    }
+                }
+                writer.println();
+                
+                // 写入数据
+                for (int i = 0; i < tableModel.getRowCount(); i++) {
+                    for (int j = 0; j < tableModel.getColumnCount(); j++) {
+                        Object value = tableModel.getValueAt(i, j);
+                        String text = value != null ? value.toString() : "";
+                        // 确保包含逗号或引号的值被正确转义
+                        if (text.contains(",") || text.contains("\"")) {
+                            text = text.replace("\"", "\"\""); // 转义引号
+                            writer.print('"' + text + '"');
+                        } else {
+                            writer.print(text);
+                        }
+                        if (j < tableModel.getColumnCount() - 1) {
+                            writer.print(",");
+                        }
+                    }
+                    writer.println();
+                }
+                
+                JOptionPane.showMessageDialog(this, "数据导出成功!\n文件保存至: " + file.getAbsolutePath(), 
+                        "导出成功", JOptionPane.INFORMATION_MESSAGE);
+                HtmlLogger.logInfo(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                        "导出不可用地点数据", "成功导出" + tableModel.getRowCount() + "条记录到文件: " + file.getAbsolutePath());
+                
+            } catch (IOException ex) {
+                JOptionPane.showMessageDialog(this, "导出数据失败: " + ex.getMessage(), 
+                        "导出失败", JOptionPane.ERROR_MESSAGE);
+                HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), 
+                        "导出不可用地点数据", "导出失败: " + ex.getMessage());
+            }
+        }
+    }
+    
+    // 显示活动详情对话框
+    private void showActivityDetailDialog(Map<String, Object> activity) {
+        JDialog detailDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), 
+                "活动详情 - " + activity.get("title"), true);
+        detailDialog.setSize(500, 600);
+        
+        // 创建滚动面板
+        JScrollPane scrollPane = new JScrollPane();
+        JPanel contentPanel = new JPanel(new GridLayout(0, 2, 10, 10));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        
+        // 添加活动信息
+        addDetailRow(contentPanel, "活动ID:", activity.get("activityId"));
+        addDetailRow(contentPanel, "活动标题:", activity.get("title"));
+        addDetailRow(contentPanel, "活动类型:", activity.get("activityType"));
+        addDetailRow(contentPanel, "活动状态:", activity.get("status"));
+        addDetailRow(contentPanel, "活动描述:", activity.get("description"));
+        addDetailRow(contentPanel, "负责人ID:", activity.get("responsibleId"));
+        addDetailRow(contentPanel, "负责人姓名:", activity.get("responsibleName"));
+        addDetailRow(contentPanel, "地点类型:", activity.get("facilityType"));
+        
+        // 添加地点信息
+        String facilityType = activity.get("facilityType") != null ? activity.get("facilityType").toString() : "";
+        String locationInfo = "-";
+        try {
+            if ("building".equals(facilityType) && activity.get("buildingId") != null) {
+                int buildingId = Integer.parseInt(activity.get("buildingId").toString());
+                locationInfo = getBuildingInfo(buildingId);
+            } else if ("room".equals(facilityType) && activity.get("roomId") != null) {
+                int roomId = Integer.parseInt(activity.get("roomId").toString());
+                locationInfo = getRoomInfo(roomId);
+            } else if ("level".equals(facilityType) && activity.get("levelId") != null) {
+                int levelId = Integer.parseInt(activity.get("levelId").toString());
+                locationInfo = getLevelInfo(levelId);
+            } else if ("square".equals(facilityType) && activity.get("squareId") != null) {
+                int squareId = Integer.parseInt(activity.get("squareId").toString());
+                locationInfo = getSquareInfo(squareId);
+            } else if ("gate".equals(facilityType) && activity.get("gateId") != null) {
+                int gateId = Integer.parseInt(activity.get("gateId").toString());
+                locationInfo = getGateInfo(gateId);
+            } else if ("canteen".equals(facilityType) && activity.get("canteenId") != null) {
+                int canteenId = Integer.parseInt(activity.get("canteenId").toString());
+                locationInfo = getCanteenInfo(canteenId);
+            }
+        } catch (Exception e) {
+            // 忽略异常
+        }
+        addDetailRow(contentPanel, "活动地点:", locationInfo);
+        
+        // 添加时间信息
+        Object datetimeObj = activity.get("activityDatetime");
+        if (datetimeObj != null) {
+            String startTime = "";
+            if (datetimeObj instanceof LocalDateTime) {
+                startTime = ((LocalDateTime) datetimeObj).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            } else if (datetimeObj instanceof Date) {
+                startTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format((Date) datetimeObj);
+            }
+            addDetailRow(contentPanel, "开始时间:", startTime);
+            
+            // 计算结束时间
+            if (activity.get("expectedUnavailableDuration") != null) {
+                try {
+                    String endTime = "";
+                    int minutes = Integer.parseInt(activity.get("expectedUnavailableDuration").toString());
+                    if (datetimeObj instanceof LocalDateTime) {
+                        LocalDateTime endDateTime = ((LocalDateTime) datetimeObj).plusMinutes(minutes);
+                        endTime = endDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                    } else if (datetimeObj instanceof Date) {
+                        Calendar cal = Calendar.getInstance();
+                        cal.setTime((Date) datetimeObj);
+                        cal.add(Calendar.MINUTE, minutes);
+                        endTime = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(cal.getTime());
+                    }
+                    addDetailRow(contentPanel, "预计结束时间:", endTime);
+                } catch (Exception e) {
+                    // 忽略异常
+                }
+            }
+        }
+        
+        addDetailRow(contentPanel, "创建时间:", activity.get("createTime"));
+        addDetailRow(contentPanel, "更新时间:", activity.get("updateTime"));
+        
+        scrollPane.setViewportView(contentPanel);
+        
+        // 添加关闭按钮
+        JPanel buttonPanel = new JPanel();
+        JButton closeButton = new JButton("关闭");
+        closeButton.addActionListener(e -> detailDialog.dispose());
+        buttonPanel.add(closeButton);
+        
+        detailDialog.setLayout(new BorderLayout());
+        detailDialog.add(scrollPane, BorderLayout.CENTER);
+        detailDialog.add(buttonPanel, BorderLayout.SOUTH);
+        
+        detailDialog.setLocationRelativeTo(this);
+        detailDialog.setVisible(true);
+    }
+    
+    // 辅助方法：向详情面板添加一行信息
+    private void addDetailRow(JPanel panel, String label, Object value) {
+        JLabel lab = new JLabel(label);
+        lab.setHorizontalAlignment(JLabel.RIGHT);
+        lab.setForeground(Color.BLUE);
+        
+        JLabel valLabel = new JLabel(value != null ? value.toString() : "-");
+        valLabel.setHorizontalAlignment(JLabel.LEFT);
+        valLabel.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 0));
+        
+        panel.add(lab);
+        panel.add(valLabel);
+    }
+    
+
 }

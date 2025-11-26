@@ -60,6 +60,7 @@ public class ChemicalServiceTest {
             Map<String, Object> pageResult = chemicalService.getChemicalsByPage(page, pageSize, conditions, sortField, sortOrder);
 
             // 解析分页结果
+            @SuppressWarnings("unchecked")
             List<Map<String, Object>> chemicals = (List<Map<String, Object>>) pageResult.get("data");
             int total = (int) pageResult.get("total");
             int totalPages = (int) pageResult.get("totalPages");

@@ -60,6 +60,7 @@ public class BuildingServiceTest {
             Map<String, Object> pageResult = buildingService.getBuildingsByPage(page, pageSize, conditions, sortField, sortOrder);
 
             // 解析分页结果
+            @SuppressWarnings("unchecked")
             List<Map<String, Object>> buildings = (List<Map<String, Object>>) pageResult.get("data");
             int total = (int) pageResult.get("total");
             int totalPages = (int) pageResult.get("totalPages");

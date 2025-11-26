@@ -12,6 +12,17 @@ import java.util.Map;
  * WorksFor服务类，提供员工参与活动关联关系的管理功能
  */
 public class WorksForService extends BaseService {
+    private static WorksForService instance;
+    
+    // 单例模式
+    private WorksForService() {}
+    
+    public static synchronized WorksForService getInstance() {
+        if (instance == null) {
+            instance = new WorksForService();
+        }
+        return instance;
+    }
 
     /**
      * 添加员工到活动
