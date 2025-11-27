@@ -1,6 +1,4 @@
 package com.polyu.cmms.view;
-
-// import com.polyu.cmms.service.*;
 import com.polyu.cmms.service.BuildingService;
 import com.polyu.cmms.service.RoomService;
 import com.polyu.cmms.service.LevelService;
