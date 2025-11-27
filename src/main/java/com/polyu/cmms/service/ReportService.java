@@ -723,7 +723,6 @@ public class ReportService extends BaseService {
         // getter/setter
         public Date getTaskDate() { return taskDate; }
         public void setTaskDate(Date taskDate) { this.taskDate = taskDate; }
-        public String getDateStr() { return dateStr; }
         public void setDateStr(String dateStr) { this.dateStr = dateStr; }
         public int getTotalTasks() { return totalTasks; }
         public void setTotalTasks(int totalTasks) { this.totalTasks = totalTasks; }

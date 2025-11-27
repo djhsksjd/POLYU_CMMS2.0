@@ -286,11 +286,7 @@ public class ActivityManagementPanel extends JPanel {
         }
     }
     
-    private void goToPreviousPage() {
-        if (currentPage > 1) {
-            loadPageData(currentPage - 1);
-        }
-    }
+    // 移除未使用的方法
     
     private void goToNextPage() {
         if (currentPage < totalPages) {
@@ -304,11 +300,7 @@ public class ActivityManagementPanel extends JPanel {
         }
     }
     
-    private void goToLastPage() {
-        if (currentPage != totalPages) {
-            loadPageData(totalPages);
-        }
-    }
+    // 移除未使用的方法
     
     
     // 添加获取当前活动的辅助方法

@@ -103,12 +103,12 @@ public class SquareService extends BaseService {
      * @return 广场列表
      * @throws SQLException SQL异常
      */
+    // 在SquareService类中添加querySquares方法
     public List<Map<String, Object>> querySquares(Map<String, Object> conditions) throws SQLException {
         StringBuilder sqlBuilder = new StringBuilder("SELECT * FROM squares WHERE 1=1");
         List<Object> params = new ArrayList<>();
         
         if (conditions != null) {
-            // 转换Java属性名为数据库列名
             for (Map.Entry<String, Object> entry : conditions.entrySet()) {
                 String dbColumn = convertToDbColumn(entry.getKey());
                 sqlBuilder.append(" AND ").append(dbColumn).append(" = ?");
@@ -117,6 +117,13 @@ public class SquareService extends BaseService {
         }
         
         return executeQuery(sqlBuilder.toString(), params.toArray());
+    }
+    
+    // 添加getSquareById方法
+    public Map<String, Object> getSquareById(int squareId) throws SQLException {
+        String sql = "SELECT * FROM squares WHERE square_id = ?";
+        List<Map<String, Object>> results = executeQuery(sql, squareId);
+        return results != null && !results.isEmpty() ? results.get(0) : null;
     }
     
     /**
@@ -209,17 +216,7 @@ public class SquareService extends BaseService {
         return result;
     }
     
-    /**
-     * 根据ID获取广场信息
-     * @param squareId 广场ID
-     * @return 广场信息
-     * @throws SQLException SQL异常
-     */
-    public Map<String, Object> getSquareById(int squareId) throws SQLException {
-        String sql = "SELECT * FROM squares WHERE square_id = ?";
-        List<Map<String, Object>> results = executeQuery(sql, squareId);
-        return results != null && !results.isEmpty() ? results.get(0) : null;
-    }
+
     
     /**
      * 获取所有在用的广场

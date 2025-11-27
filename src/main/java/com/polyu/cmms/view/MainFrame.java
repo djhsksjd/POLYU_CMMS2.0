@@ -7,6 +7,7 @@ import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
+
 public class MainFrame extends JFrame {
     private JTabbedPane tabbedPane;
     
@@ -37,10 +38,14 @@ public class MainFrame extends JFrame {
         AuthService authService = AuthService.getInstance();
         
         try {
-            // 数据管理面板 - 需要MANAGE_STAFF权限
-            if (authService.hasPermission("MANAGE_STAFF")) {
-                tabbedPane.addTab("Data Management", new DataManagementPanel());
+            // 位置管理面板 - 需要DATA_MANAGEMENT权限或VIEW_LOCATIONS权限
+            if (authService.hasPermission("DATA_MANAGEMENT") || authService.hasPermission("VIEW_LOCATIONS")) {
+                tabbedPane.addTab("Location Management", new LocationManagementPanel());
             }
+            // // 数据管理面板 - 需要MANAGE_STAFF权限
+            // if (authService.hasPermission("MANAGE_STAFF")) {
+            //     tabbedPane.addTab("Data Management", new DataManagementPanel());
+            // }
             
             // 活动管理面板 - 需要MANAGE_ACTIVITY权限
             if (authService.hasPermission("MANAGE_ACTIVITY")) {

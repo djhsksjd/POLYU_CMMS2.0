@@ -103,12 +103,12 @@ public class GateService extends BaseService {
      * @return 大门列表
      * @throws SQLException SQL异常
      */
+    // 在GateService类中添加queryGates方法
     public List<Map<String, Object>> queryGates(Map<String, Object> conditions) throws SQLException {
         StringBuilder sqlBuilder = new StringBuilder("SELECT * FROM gates WHERE 1=1");
         List<Object> params = new ArrayList<>();
         
         if (conditions != null) {
-            // 转换Java属性名为数据库列名
             for (Map.Entry<String, Object> entry : conditions.entrySet()) {
                 String dbColumn = convertToDbColumn(entry.getKey());
                 sqlBuilder.append(" AND ").append(dbColumn).append(" = ?");
@@ -118,6 +118,7 @@ public class GateService extends BaseService {
         
         return executeQuery(sqlBuilder.toString(), params.toArray());
     }
+    
     
     /**
      * 分页查询大门

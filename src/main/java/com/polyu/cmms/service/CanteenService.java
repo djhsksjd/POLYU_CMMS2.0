@@ -108,12 +108,12 @@ public class CanteenService extends BaseService {
      * @return 食堂列表
      * @throws SQLException SQL异常
      */
+    // 在CanteenService类中添加queryCanteens方法
     public List<Map<String, Object>> queryCanteens(Map<String, Object> conditions) throws SQLException {
         StringBuilder sqlBuilder = new StringBuilder("SELECT * FROM canteen WHERE 1=1");
         List<Object> params = new ArrayList<>();
         
         if (conditions != null) {
-            // 转换Java属性名为数据库列名
             for (Map.Entry<String, Object> entry : conditions.entrySet()) {
                 String dbColumn = convertToDbColumn(entry.getKey());
                 sqlBuilder.append(" AND ").append(dbColumn).append(" = ?");
@@ -123,6 +123,7 @@ public class CanteenService extends BaseService {
         
         return executeQuery(sqlBuilder.toString(), params.toArray());
     }
+    
     
     /**
      * 分页查询食堂
