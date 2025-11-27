@@ -1072,13 +1072,13 @@ public class ActivityManagementPanel extends JPanel {
         System.out.println("============================================");
         System.out.println("User clicked View Staff Assignment button");
         // 记录查看人员分配操作
-        HtmlLogger.logInfo(authService.getCurrentUserId(), authService.getCurrentRole(), "查看人员分配", "用户查看当前任务分配的人员和空闲人员");
+        HtmlLogger.logInfo(authService.getCurrentUserId(), authService.getCurrentRole(), "CheckStaffAssignment", "user checked staff assignment");
         
         try {
             System.out.println("创建人员分配对话框...");
             // 创建对话框
             JDialog assignmentDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), 
-                    "人员分配情况", true);
+                    "Staff Assignment", true);
             assignmentDialog.setSize(800, 600);
             assignmentDialog.setLayout(new BorderLayout());
             
@@ -1088,7 +1088,7 @@ public class ActivityManagementPanel extends JPanel {
             
             System.out.println("添加树状图选项卡...");
             // 只添加树状图选项卡，包含已分配和空闲人员
-            tabbedPane.addTab("人员分配树状图", createStaffAssignmentTreePanel());
+            tabbedPane.addTab("Tree View", createStaffAssignmentTreePanel());
             System.out.println("选项卡面板创建完成");
             
             assignmentDialog.add(tabbedPane, BorderLayout.CENTER);
@@ -1096,7 +1096,7 @@ public class ActivityManagementPanel extends JPanel {
             // 添加关闭按钮
             System.out.println("添加对话框关闭按钮...");
             JPanel buttonPanel = new JPanel();
-            JButton closeButton = new JButton("关闭");
+            JButton closeButton = new JButton("Close");
             closeButton.addActionListener(e -> {
                 System.out.println("用户点击关闭按钮，对话框即将关闭");
                 assignmentDialog.dispose();
@@ -1112,7 +1112,7 @@ public class ActivityManagementPanel extends JPanel {
             System.out.println("Error: " + ex.getMessage());
             ex.printStackTrace();
             JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), "查看人员分配", "查询失败: " + ex.getMessage());
+            HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), "CheckStaffAssignment", "error checking staff assignment: " + ex.getMessage());
         }
         System.out.println("Staff assignment viewing operation completed");
         System.out.println("============================================");
