@@ -17,7 +17,7 @@ public class AuthService extends BaseService {
     static {
         // 默认设置管理员身份
         currentUserId = 1;
-        currentRole = "ADMIN";
+        currentRole = "管理员";
         currentUsername = "admin";
     }
     
@@ -57,7 +57,7 @@ public class AuthService extends BaseService {
                 int roleId = getIntValue(result.get("role_id"), 0);
                 switch (roleId) {
                     case 1:
-                        currentRole = "ADMIN";
+                        currentRole = "管理员";
                         break;
                     case 2:
                         currentRole = "主管";
@@ -100,7 +100,7 @@ public class AuthService extends BaseService {
         int roleId = getIntValue(result != null ? result.get("role_id") : null, 0);
         switch (roleId) {
             case 1:
-                return "ADMIN";
+                return "管理员";
             case 2:
                 return "主管";
             default:
@@ -121,7 +121,7 @@ public class AuthService extends BaseService {
         
         // 根据角色简单判断权限
         // 管理员有所有权限
-        if ("ADMIN".equals(role)) {
+        if ("管理员".equals(role)) {
             return true;
         }
         // 主管有部分管理权限
@@ -162,7 +162,7 @@ public class AuthService extends BaseService {
         }
         
         // 根据当前角色直接判断权限
-        if ("ADMIN".equals(currentRole)) {
+        if ("管理员".equals(currentRole)) {
             return true;
         } else if ("主管".equals(currentRole)) {
             return !"MANAGE_STAFF".equals(permission);
