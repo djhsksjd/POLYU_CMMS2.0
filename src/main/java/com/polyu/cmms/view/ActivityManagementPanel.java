@@ -350,50 +350,120 @@ public class ActivityManagementPanel extends JPanel {
         HtmlLogger.logInfo(authService.getCurrentUserId(), authService.getCurrentRole(), "create activity", "user try to create a new activity");
         
         try {
-            // 简单的活动创建对话框
-            String activityType = JOptionPane.showInputDialog(this, "Input the activity type:", "Create Activity", JOptionPane.PLAIN_MESSAGE);
-            if (activityType == null || activityType.trim().isEmpty()) return;
+            // 创建统一的活动创建对话框
+            JDialog createDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Create Activity", true);
+            createDialog.setSize(500, 400);
+            createDialog.setLocationRelativeTo(this);
             
-            String title = JOptionPane.showInputDialog(this, "Input the activity title:", "Create Activity", JOptionPane.PLAIN_MESSAGE);
-            if (title == null || title.trim().isEmpty()) return;
+            // 创建面板并设置布局
+            JPanel panel = new JPanel(new GridLayout(0, 2, 10, 10));
+            panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
             
-            String description = JOptionPane.showInputDialog(this, "Input the activity description:", "Create Activity", JOptionPane.PLAIN_MESSAGE);
+            // 创建输入字段
+            JLabel typeLabel = new JLabel("Activity Type:");
+            JTextField typeField = new JTextField();
             
-            // 获取预计停机时间（分钟数）
-            String downtimeStr = JOptionPane.showInputDialog(this, "Input the expected downtime (minutes):", "Create Activity", JOptionPane.PLAIN_MESSAGE);
-            Integer expectedDowntimeMinutes = 0; // 默认值
-            if (downtimeStr != null && !downtimeStr.trim().isEmpty()) {
+            JLabel titleLabel = new JLabel("Title:");
+            JTextField titleField = new JTextField();
+            
+            JLabel descLabel = new JLabel("Description:");
+            JTextArea descArea = new JTextArea(3, 20);
+            descArea.setLineWrap(true);
+            JScrollPane descScrollPane = new JScrollPane(descArea);
+            
+            JLabel downtimeLabel = new JLabel("Expected Downtime (minutes):");
+            JTextField downtimeField = new JTextField("0");
+            
+            // 添加组件到面板
+            panel.add(typeLabel);
+            panel.add(typeField);
+            panel.add(titleLabel);
+            panel.add(titleField);
+            panel.add(descLabel);
+            panel.add(descScrollPane);
+            panel.add(downtimeLabel);
+            panel.add(downtimeField);
+            
+            // 创建按钮面板
+            JPanel buttonPanel = new JPanel();
+            JButton createButton = new JButton("Create");
+            JButton cancelButton = new JButton("Cancel");
+            buttonPanel.add(createButton);
+            buttonPanel.add(cancelButton);
+            
+            // 设置按钮事件
+            createButton.addActionListener(e -> {
                 try {
-                    expectedDowntimeMinutes = Integer.parseInt(downtimeStr.trim());
-                } catch (NumberFormatException e) {
-                    JOptionPane.showMessageDialog(this, "Input a valid number for expected downtime!", "Input Error", JOptionPane.ERROR_MESSAGE);
-                    return;
+                    // 验证输入
+                    String activityType = typeField.getText().trim();
+                    if (activityType.isEmpty()) {
+                        JOptionPane.showMessageDialog(createDialog, "Activity type cannot be empty!", "Input Error", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    
+                    String title = titleField.getText().trim();
+                    if (title.isEmpty()) {
+                        JOptionPane.showMessageDialog(createDialog, "Title cannot be empty!", "Input Error", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    
+                    String description = descArea.getText().trim();
+                    
+                    // 获取预计停机时间
+                    Integer expectedDowntimeMinutes = 0;
+                    String downtimeStr = downtimeField.getText().trim();
+                    if (!downtimeStr.isEmpty()) {
+                        try {
+                            expectedDowntimeMinutes = Integer.parseInt(downtimeStr);
+                            if (expectedDowntimeMinutes < 0) {
+                                JOptionPane.showMessageDialog(createDialog, "Expected downtime cannot be negative!", "Input Error", JOptionPane.ERROR_MESSAGE);
+                                return;
+                            }
+                        } catch (NumberFormatException ex) {
+                            JOptionPane.showMessageDialog(createDialog, "Please enter a valid number for expected downtime!", "Input Error", JOptionPane.ERROR_MESSAGE);
+                            return;
+                        }
+                    }
+                    
+                    // 创建活动对象
+                    Activity newActivity = new Activity();
+                    newActivity.setActivityType(activityType);
+                    newActivity.setTitle(title);
+                    newActivity.setDescription(description);
+                    newActivity.setStatus("planned"); // 默认状态为计划中
+                    newActivity.setPriority("medium"); // 默认优先级
+                    newActivity.setDate(new Date()); // 默认当前时间
+                    newActivity.setExpectedDowntime(expectedDowntimeMinutes); // 使用用户输入的分钟数
+                    newActivity.setCreatedByStaffId(authService.getCurrentUserId()); // 使用当前用户ID
+                    newActivity.setHazardLevel("low"); // 默认低风险
+                    
+                    // 调用ActivityService添加活动
+                    boolean success = activityService.addActivity(newActivity);
+                    
+                    if (success) {
+                        JOptionPane.showMessageDialog(createDialog, "Activity created successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+                        createDialog.dispose();
+                        // 重新加载活动列表
+                        refreshActivityList();
+                    } else {
+                        JOptionPane.showMessageDialog(createDialog, "Activity creation failed!", "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(createDialog, "Error creating activity: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
-            }
+            });
             
-            // 创建活动对象
-            Activity newActivity = new Activity();
-            newActivity.setActivityType(activityType);
-            newActivity.setTitle(title);
-            newActivity.setDescription(description);
-            newActivity.setStatus("planned"); // 默认状态为计划中
-            newActivity.setPriority("medium"); // 默认优先级
-            newActivity.setDate(new Date()); // 默认当前时间
-            newActivity.setExpectedDowntime(expectedDowntimeMinutes); // 使用用户输入的分钟数
-            newActivity.setCreatedByStaffId(authService.getCurrentUserId()); // 使用当前用户ID
-            newActivity.setHazardLevel("low"); // 默认低风险
+            cancelButton.addActionListener(e -> createDialog.dispose());
             
-            // 调用ActivityService添加活动
-            boolean success = activityService.addActivity(newActivity);
+            // 添加面板到对话框
+            JPanel contentPanel = new JPanel(new BorderLayout());
+            contentPanel.add(panel, BorderLayout.CENTER);
+            contentPanel.add(buttonPanel, BorderLayout.SOUTH);
+            createDialog.add(contentPanel);
             
-            if (success) {
-                JOptionPane.showMessageDialog(this, "Activity created successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
-                // 重新加载活动列表
-                refreshActivityList();
-            } else {
-                JOptionPane.showMessageDialog(this, "Activity creation failed!", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        } catch (SQLException ex) {
+            // 显示对话框
+            createDialog.setVisible(true);
+        } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error creating activity: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE); 
             HtmlLogger.logError(authService.getCurrentUserId(), authService.getCurrentRole(), "create activity", "create failed: " + ex.getMessage());
         }

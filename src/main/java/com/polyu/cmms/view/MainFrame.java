@@ -65,7 +65,7 @@ public class MainFrame extends JFrame {
             
             // 查询与报告面板 - 需要VIEW_REPORT权限
             if (authService.hasPermission("VIEW_REPORT")) {
-                tabbedPane.addTab("Query & Reports", new QueryReportPanel());
+                tabbedPane.addTab("Query", new QueryReportPanel());
             }
             
             // 报表生成面板 - 需要GENERATE_REPORT权限

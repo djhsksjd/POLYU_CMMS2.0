@@ -8,6 +8,8 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.awt.*;
 import java.awt.Font;
 import java.sql.SQLException;
@@ -46,6 +48,7 @@ public class StaffManagementPanel extends JPanel {
             private int pageSize = 10;
             private JLabel pageInfoLabel;
             private JButton prevButton, nextButton;
+            private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         
         public StaffListPanel() {
             setLayout(new BorderLayout());
@@ -232,6 +235,20 @@ public class StaffManagementPanel extends JPanel {
             nextButton.addActionListener(e -> {
                 currentPage++;
                 loadStaffData();
+            });
+            
+            // 表格双击事件，用于修改员工信息
+            staffTable.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseClicked(MouseEvent e) {
+                    if (e.getClickCount() == 2) {
+                        int row = staffTable.rowAtPoint(e.getPoint());
+                        if (row >= 0) {
+                            int staffId = (int) tableModel.getValueAt(row, 0);
+                            updateStaff(staffId);
+                        }
+                    }
+                }
             });
         }
         
@@ -499,6 +516,190 @@ public class StaffManagementPanel extends JPanel {
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(this, "Failed to delete staff: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
+            }
+        }
+        
+        private void updateStaff(int staffId) {
+            try {
+                // 获取员工信息
+                StaffService staffService = StaffService.getInstance();
+                Map<String, Object> staffData = staffService.getStaffById(staffId);
+                
+                if (staffData == null || staffData.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Staff information not found", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                
+                // 创建编辑对话框
+                JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Update Staff", true);
+                dialog.setSize(600, 500);
+                dialog.setLocationRelativeTo(this);
+                
+                // 创建表单面板
+                JPanel formPanel = new JPanel(new GridBagLayout());
+                GridBagConstraints gbc = new GridBagConstraints();
+                gbc.insets = new Insets(5, 5, 5, 5);
+                gbc.fill = GridBagConstraints.HORIZONTAL;
+                
+                // 员工信息表单字段
+                JTextField staffNumberInput = new JTextField(20);
+                JTextField firstNameInput = new JTextField(20);
+                JTextField lastNameInput = new JTextField(20);
+                JComboBox<String> genderInput = new JComboBox<>(new String[]{"M", "F"});
+                JTextField dateOfBirthInput = new JTextField(20);
+                JTextField phoneInput = new JTextField(20);
+                JTextField emailInput = new JTextField(20);
+                JTextField hireDateInput = new JTextField(20);
+                JComboBox<String> roleInput = new JComboBox<>(new String[]{"Officer", "Middle Manager", "Worker"});
+                JTextField emergencyContactInput = new JTextField(20);
+                JTextField emergencyPhoneInput = new JTextField(20);
+                JComboBox<String> activeFlagInput = new JComboBox<>(new String[]{"Y", "N"});
+                
+                // 设置现有值
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+                staffNumberInput.setText((String) staffData.getOrDefault("staffNumber", ""));
+                firstNameInput.setText((String) staffData.getOrDefault("firstName", ""));
+                lastNameInput.setText((String) staffData.getOrDefault("lastName", ""));
+                genderInput.setSelectedItem(staffData.getOrDefault("gender", "M"));
+                
+                if (staffData.containsKey("dateOfBirth")) {
+                    dateOfBirthInput.setText(sdf.format((Date) staffData.get("dateOfBirth")));
+                }
+                
+                phoneInput.setText((String) staffData.getOrDefault("phone", ""));
+                emailInput.setText((String) staffData.getOrDefault("email", ""));
+                
+                if (staffData.containsKey("hireDate")) {
+                    hireDateInput.setText(sdf.format((Date) staffData.get("hireDate")));
+                }
+                
+                int roleId = getIntValue(staffData.get("roleId"), 1);
+                if (roleId == 1) roleInput.setSelectedItem("Officer");
+                else if (roleId == 2) roleInput.setSelectedItem("Middle Manager");
+                else if (roleId == 3) roleInput.setSelectedItem("Worker");
+                
+                emergencyContactInput.setText((String) staffData.getOrDefault("emergencyContact", ""));
+                emergencyPhoneInput.setText((String) staffData.getOrDefault("emergencyPhone", ""));
+                activeFlagInput.setSelectedItem(staffData.getOrDefault("activeFlag", "Y"));
+                
+                // 添加表单字段
+                int row = 0;
+                gbc.gridx = 0; gbc.gridy = row; formPanel.add(new JLabel("Staff Number:*"), gbc);
+                gbc.gridx = 1; formPanel.add(staffNumberInput, gbc);
+                
+                row++;
+                gbc.gridx = 0; gbc.gridy = row; formPanel.add(new JLabel("First Name:*"), gbc);
+                gbc.gridx = 1; formPanel.add(firstNameInput, gbc);
+                
+                row++;
+                gbc.gridx = 0; gbc.gridy = row; formPanel.add(new JLabel("Last Name:*"), gbc);
+                gbc.gridx = 1; formPanel.add(lastNameInput, gbc);
+                
+                row++;
+                gbc.gridx = 0; gbc.gridy = row; formPanel.add(new JLabel("Gender:"), gbc);
+                gbc.gridx = 1; formPanel.add(genderInput, gbc);
+                
+                row++;
+                gbc.gridx = 0; gbc.gridy = row; formPanel.add(new JLabel("Date of Birth (yyyy-MM-dd):"), gbc);
+                gbc.gridx = 1; formPanel.add(dateOfBirthInput, gbc);
+                
+                row++;
+                gbc.gridx = 0; gbc.gridy = row; formPanel.add(new JLabel("Phone:"), gbc);
+                gbc.gridx = 1; formPanel.add(phoneInput, gbc);
+                
+                row++;
+                gbc.gridx = 0; gbc.gridy = row; formPanel.add(new JLabel("Email:"), gbc);
+                gbc.gridx = 1; formPanel.add(emailInput, gbc);
+                
+                row++;
+                gbc.gridx = 0; gbc.gridy = row; formPanel.add(new JLabel("Hire Date (yyyy-MM-dd):"), gbc);
+                gbc.gridx = 1; formPanel.add(hireDateInput, gbc);
+                
+                row++;
+                gbc.gridx = 0; gbc.gridy = row; formPanel.add(new JLabel("Role:"), gbc);
+                gbc.gridx = 1; formPanel.add(roleInput, gbc);
+                
+                row++;
+                gbc.gridx = 0; gbc.gridy = row; formPanel.add(new JLabel("Emergency Contact:"), gbc);
+                gbc.gridx = 1; formPanel.add(emergencyContactInput, gbc);
+                
+                row++;
+                gbc.gridx = 0; gbc.gridy = row; formPanel.add(new JLabel("Emergency Phone:"), gbc);
+                gbc.gridx = 1; formPanel.add(emergencyPhoneInput, gbc);
+                
+                row++;
+                gbc.gridx = 0; gbc.gridy = row; formPanel.add(new JLabel("Active Flag:"), gbc);
+                gbc.gridx = 1; formPanel.add(activeFlagInput, gbc);
+                
+                // 按钮面板
+                JPanel buttonPanel = new JPanel();
+                JButton saveButton = new JButton("Save");
+                JButton cancelButton = new JButton("Cancel");
+                buttonPanel.add(saveButton);
+                buttonPanel.add(cancelButton);
+                
+                // 添加面板到对话框
+                dialog.setLayout(new BorderLayout());
+                dialog.add(new JScrollPane(formPanel), BorderLayout.CENTER);
+                dialog.add(buttonPanel, BorderLayout.SOUTH);
+                
+                // 保存按钮事件
+                saveButton.addActionListener(e -> {
+                    try {
+                        // 参数验证
+                        if (staffNumberInput.getText().trim().isEmpty()) {
+                            JOptionPane.showMessageDialog(dialog, "Staff Number cannot be empty", "Error", JOptionPane.ERROR_MESSAGE);
+                            return;
+                        }
+                        
+                        // 日期格式化
+                        Date dateOfBirth = sdf.parse(dateOfBirthInput.getText().trim());
+                        Date hireDate = sdf.parse(hireDateInput.getText().trim());
+                        
+                        // 角色转换
+                        String roleName = roleInput.getSelectedItem().toString();
+                        int updatedRoleId = 0;
+                        if (roleName.equals("Officer")) updatedRoleId = 1;
+                        else if (roleName.equals("Middle Manager")) updatedRoleId = 2;
+                        else if (roleName.equals("Worker")) updatedRoleId = 3;
+                        
+                        // 更新员工信息
+                        boolean success = staffService.updateStaff(
+                            staffId,
+                            staffNumberInput.getText().trim(),
+                            firstNameInput.getText().trim(),
+                            lastNameInput.getText().trim(),
+                            genderInput.getSelectedItem().toString(),
+                            dateOfBirth,
+                            phoneInput.getText().trim(),
+                            emailInput.getText().trim(),
+                            hireDate,
+                            updatedRoleId,
+                            emergencyContactInput.getText().trim(),
+                            emergencyPhoneInput.getText().trim(),
+                            activeFlagInput.getSelectedItem().toString()
+                        );
+                        
+                        if (success) {
+                            JOptionPane.showMessageDialog(dialog, "Staff updated successfully", "Success", JOptionPane.INFORMATION_MESSAGE);
+                            dialog.dispose();
+                            loadStaffData();
+                        } else {
+                            JOptionPane.showMessageDialog(dialog, "Failed to update staff", "Error", JOptionPane.ERROR_MESSAGE);
+                        }
+                    } catch (ParseException pe) {
+                        JOptionPane.showMessageDialog(dialog, "Date format is incorrect, please use yyyy-MM-dd", "Error", JOptionPane.ERROR_MESSAGE);
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(dialog, "Failed to update staff: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                });
+                
+                // 取消按钮事件
+                cancelButton.addActionListener(e -> dialog.dispose());
+                
+                dialog.setVisible(true);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Failed to load staff information: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
