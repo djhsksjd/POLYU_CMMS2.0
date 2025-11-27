@@ -18,7 +18,6 @@ public class QueryReportPanel extends JPanel {
     // 服务类实例
     private QueryService queryService;
     private BuildingService buildingService;
-    private StaffService staffService;
     private ChemicalService chemicalService;
     
 
@@ -32,7 +31,6 @@ public class QueryReportPanel extends JPanel {
         // 初始化服务类
         queryService = new QueryService();
         buildingService = BuildingService.getInstance();
-        staffService = StaffService.getInstance();
         chemicalService = ChemicalService.getInstance();
 
         setLayout(new BorderLayout());
@@ -50,10 +48,7 @@ public class QueryReportPanel extends JPanel {
         // 添加各个查询面板 - 直接使用内部类实例
         contentPanel.add(new SqlQueryPanel(), "sql");
         contentPanel.add(new BuildingActivityPanel(), "buildingActivity");
-        contentPanel.add(new StaffActivityPanel(), "staffActivity");
         contentPanel.add(new ChemicalUsagePanel(), "chemicalUsage");
-        // contentPanel.add(new EquipmentActivityQueryPanel(), "equipmentActivity");
-        // contentPanel.add(new MaintenanceRecordQueryPanel(), "maintenanceRecord");
 
         // 添加面板到主面板
         add(navigationPanel, BorderLayout.WEST);
@@ -68,33 +63,23 @@ public class QueryReportPanel extends JPanel {
         // 创建导航按钮
         JButton sqlQueryButton = createNavButton("SQL Query");
         JButton buildingActivityButton = createNavButton("Building Activity Query");
-        JButton staffActivityButton = createNavButton("Staff Activity Query");
         JButton chemicalUsageButton = createNavButton("Chemical Usage Query");
-        // JButton equipmentActivityButton = createNavButton("Equipment Activity Query");
-        // JButton maintenanceRecordButton = createNavButton("Maintenance Record Query");
 
         // 添加按钮监听器
         sqlQueryButton.addActionListener(new NavigationListener("sql"));
         buildingActivityButton.addActionListener(new NavigationListener("buildingActivity"));
-        staffActivityButton.addActionListener(new NavigationListener("staffActivity"));
         chemicalUsageButton.addActionListener(new NavigationListener("chemicalUsage"));
-        // equipmentActivityButton.addActionListener(new NavigationListener("equipmentActivity"));
-        // maintenanceRecordButton.addActionListener(new NavigationListener("maintenanceRecord"));
 
         // 添加按钮到导航面板
         navigationPanel.add(sqlQueryButton);
         navigationPanel.add(buildingActivityButton);
-        navigationPanel.add(staffActivityButton);
         navigationPanel.add(chemicalUsageButton);
-        // navigationPanel.add(equipmentActivityButton);
-        // navigationPanel.add(maintenanceRecordButton);
 
         return navigationPanel;
     }
 
     private JButton createNavButton(String text) {
         JButton button = new JButton(text);
-        // 使用系统默认样式以保持一致性
         return button;
     }
 
@@ -401,140 +386,6 @@ public class QueryReportPanel extends JPanel {
 
         private void exportResults() {
             JOptionPane.showMessageDialog(this, "Export feature is not implemented yet", "Info", JOptionPane.INFORMATION_MESSAGE);
-        }
-    }
-
-    // 员工活动查询面板
-    private class StaffActivityPanel extends JPanel {
-        private JComboBox<String> staffComboBox;
-        private JTable resultTable;
-
-        public StaffActivityPanel() {
-            setLayout(new BorderLayout(10, 10));
-            setBackground(PANEL_BACKGROUND);
-
-            // 查询条件面板
-            JPanel criteriaPanel = createCriteriaPanel();
-            add(criteriaPanel, BorderLayout.NORTH);
-
-            // 结果表格
-            resultTable = new JTable() {
-                @Override
-                public boolean isCellEditable(int row, int column) {
-                    return false;
-                }
-            };
-            JScrollPane scrollPane = new JScrollPane(resultTable);
-            add(scrollPane, BorderLayout.CENTER);
-
-            // 按钮面板
-            JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-            buttonPanel.setBackground(PANEL_BACKGROUND);
-
-            JButton queryButton = new JButton("Query Activities");
-            JButton exportButton = new JButton("Export Results");
-
-            queryButton.addActionListener(e -> queryStaffActivities());
-            exportButton.addActionListener(e -> exportResults());
-
-            buttonPanel.add(queryButton);
-            buttonPanel.add(exportButton);
-            add(buttonPanel, BorderLayout.SOUTH);
-        }
-
-        private JPanel createCriteriaPanel() {
-            JPanel criteriaPanel = new JPanel(new GridLayout(2, 2));
-            criteriaPanel.setBorder(BorderFactory.createTitledBorder("Query Criteria"));
-            criteriaPanel.setBackground(PANEL_BACKGROUND);
-
-            // 员工选择
-            JLabel staffLabel = new JLabel("Staff Name:");
-            staffComboBox = new JComboBox<>();
-
-            criteriaPanel.add(staffLabel);
-            criteriaPanel.add(staffComboBox);
-
-            // 加载员工数据
-            loadStaff();
-
-            return criteriaPanel;
-        }
-
-        private void loadStaff() {
-            try {
-                List<Map<String, Object>> staffList = staffService.queryStaff(new java.util.HashMap<>());
-                for (Map<String, Object> staff : staffList) {
-                    String firstName = (String) staff.get("firstName");
-                    String lastName = (String) staff.get("lastName");
-                    String staffNumber = (String) staff.get("staffNumber");
-                    if (firstName != null && lastName != null) {
-                        String displayName = firstName + " " + lastName + " (" + staffNumber + ")";
-                        staffComboBox.addItem(displayName);
-                    }
-                }
-            } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(this, "Failed to load staff list: " + ex.getMessage(),
-                        "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-
-        private void queryStaffActivities() {
-            try {
-                String selectedStaff = (String) staffComboBox.getSelectedItem();
-                if (selectedStaff == null) {
-                    JOptionPane.showMessageDialog(this, "Please select a staff member", "Error", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
-
-                // 从显示文本中提取员工编号
-                String staffNumber = selectedStaff.substring(selectedStaff.lastIndexOf("(") + 1, selectedStaff.lastIndexOf(")"));
-
-                // 构建查询SQL
-                String sql = """
-                    SELECT a.activity_id, a.title, a.activity_type, a.status, 
-                           a.activity_datetime, wf.activity_responsibility,
-                           CONCAT(s.first_name, ' ', s.last_name) as staff_name
-                    FROM activity a
-                    JOIN works_for wf ON a.activity_id = wf.activity_id
-                    JOIN staff s ON wf.staff_id = s.staff_id
-                    WHERE s.staff_number = ? AND a.active_flag = 'Y' AND wf.active_flag = 'Y'
-                    ORDER BY a.activity_datetime DESC
-                """;
-
-                List<Map<String, Object>> results = queryService.executeCustomQuery(sql, staffNumber);
-                displayTableResults(results);
-
-            } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(this, "Failed to query staff activities: " + ex.getMessage(),
-                        "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-
-        private void displayTableResults(List<Map<String, Object>> results) {
-            if (results == null || results.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "No activities found for the selected staff member", "Information", JOptionPane.INFORMATION_MESSAGE);
-                return;
-            }
-
-            Vector<String> columnNames = new Vector<>();
-            if (!results.isEmpty()) {
-                columnNames.addAll(results.get(0).keySet());
-            }
-
-            Vector<Vector<Object>> data = new Vector<>();
-            for (Map<String, Object> row : results) {
-                Vector<Object> rowData = new Vector<>();
-                for (String column : columnNames) {
-                    rowData.add(row.get(column));
-                }
-                data.add(rowData);
-            }
-
-            resultTable.setModel(new DefaultTableModel(data, columnNames));
-        }
-
-        private void exportResults() {
-            JOptionPane.showMessageDialog(this, "Export feature is not implemented yet", "Information", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 
