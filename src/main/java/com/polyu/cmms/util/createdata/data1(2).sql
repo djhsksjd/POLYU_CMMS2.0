@@ -390,3 +390,37 @@ VALUES
 (8, 12, '2024-10-30', 900.00, NULL, 'active', 'Payment after lighting facility repair completion', 'Repair content: Central Square street light replacement'),
 (9, 11, '2024-10-12', 1100.00, NULL, 'active', 'Payment within 25 days after cleaning acceptance', 'Cleaning scope: Chemical warehouse external buffer zone'),
 (10, 7, '2024-07-18', 1400.00, '2024-07-22', 'completed', 'Payment after drainage cleaning completion', 'Cleaning content: Building B-005 basement accumulated water');
+
+INSERT INTO Safety_Check (
+    activity_id, 
+    chemical_id, 
+    check_datetime, 
+    checked_by_staff_id, 
+    check_items, 
+    check_result, 
+    rectification_measures, 
+    notes
+)
+VALUES 
+-- High-risk activity inspections (hazard_level='high')
+(7, 5, '2024-07-21 08:30:00', 8, 'Formaldehyde disinfectant concentration, storage compliance, protective equipment wearing', 'passed', NULL, 'Complies with high-risk chemical usage standards'),
+(16, 10, '2024-02-05 07:30:00', 13, 'High-concentration disinfectant storage, usage records, waste disposal', 'passed', NULL, 'Strictly follows dual-person dual-lock management requirements'),
+(6, 7, '2024-11-01 12:30:00', 8, 'Circuit cleaner sealing condition, fire source isolation measures, ventilation conditions', 'pending', NULL, 'Safety inspection completed in advance; activity not yet executed'),
+(19, 4, '2025-07-14 09:30:00', 13, 'Strong oxidizer storage isolation, emergency supplies preparation, usage training', 'pending', NULL, 'Pre-activity safety inspection for emergency operations'),
+
+-- Medium-risk activity inspections (hazard_level='medium')
+(1, 1, '2024-10-01 07:30:00', 8, '75% medical alcohol concentration, sealed storage, fire source isolation', 'passed', NULL, 'Disinfection operation complies with standards'),
+(3, 2, '2024-08-02 09:30:00', 13, 'Industrial cleaner usage scope, protective glove wearing, waste disposal', 'passed', NULL, 'No chemical leakage during cleaning process'),
+(4, 11, '2024-10-03 13:30:00', 8, 'Rubber solvent ventilated storage, usage records, skin protection', 'failed', 'Replace leaking solvent container and enhance ventilation', 'Minor container leakage detected; rectified'),
+(11, 18, '2024-10-15 13:30:00', 13, 'Mechanical rust remover usage training, protective equipment, emergency handling', 'passed', NULL, 'All inspection items comply with requirements'),
+(15, 7, '2024-10-20 10:00:00', 8, 'Circuit cleaner usage environment, static protection, fire source isolation', 'passed', NULL, 'Complies with solvent usage safety requirements'),
+(18, 11, '2024-11-08 13:30:00', 13, 'Rubber solvent storage conditions, usage authorization, emergency plan', 'pending', NULL, 'Pre-maintenance activity safety inspection'),
+
+-- Low-risk activity inspections (hazard_level='low')
+(2, 2, '2024-10-02 08:30:00', 8, 'Industrial cleaner storage, usage concentration, skin protection', 'passed', NULL, 'Low-risk chemical usage complies with standards'),
+(9, 17, '2024-10-04 14:30:00', 13, 'Plant-based disinfectant shelf life after opening, usage scope', 'passed', NULL, 'Disinfection operation complies with low-risk standards'),
+(10, 3, '2024-10-05 09:30:00', 8, 'Mechanical lubricating oil sealed storage, high-temperature isolation', 'passed', NULL, 'Stored lubricating oil free from deterioration'),
+(14, 6, '2024-10-06 08:00:00', 13, 'Glass cleaner usage, child contact protection', 'passed', NULL, 'Complies with daily chemical usage requirements'),
+(17, 2, '2024-11-10 08:30:00', 8, 'Industrial cleaner concentration ratio, cleaning tool maintenance', 'passed', NULL, 'Compliant chemical usage for classroom cleaning'),
+(20, 6, '2024-10-08 12:30:00', 13, 'Glass cleaner storage, direct sunlight avoidance', 'passed', NULL, 'Compliant chemical inspection for meeting room cleaning'),
+(5, 12, '2024-10-10 08:30:00', 8, 'Floor wax storage conditions, ventilation during usage', 'passed', NULL, 'Compliant chemical usage for access control maintenance area cleaning');
