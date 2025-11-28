@@ -7,9 +7,9 @@ import java.sql.SQLException;
 
 public class DatabaseUtil {
     // TiDB Cloud数据库连接配置（根据用户提供的新配置）
-    private static final String URL = "jdbc:mysql://gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/test1?sslMode=VERIFY_IDENTITY";
+    private static final String URL = "jdbc:mysql://3yZKtrYwuR4Coqh.root:i2jo6bBHviADptG6@gateway01.ap-southeast-1.prod.aws.tidbcloud.com:4000/test2?sslMode=VERIFY_IDENTITY";
     private static final String USERNAME = "3yZKtrYwuR4Coqh.root";
-    private static final String PASSWORD = "PGzKU7mGSEDy7CKt"; // 使用用户提供的密码
+    private static final String PASSWORD = "i2jo6bBHviADptG6"; // 使用用户提供的密码
     private static Connection connection = null;
     
     // 获取数据库连接

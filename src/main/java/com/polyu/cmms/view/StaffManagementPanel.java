@@ -435,8 +435,12 @@ public class StaffManagementPanel extends JPanel {
                     
                     // 日期格式化
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-                    Date dateOfBirth = sdf.parse(dateOfBirthInput.getText().trim());
-                    Date hireDate = sdf.parse(hireDateInput.getText().trim());
+                    Date dateOfBirth = null;
+                    String dateOfBirthText = dateOfBirthInput.getText().trim();
+                    if (!dateOfBirthText.isEmpty()) {
+                        dateOfBirth = sdf.parse(dateOfBirthText);
+                    }
+                    Date hireDate = sdf.parse(hireDateInput.getText().trim()); // hireDate是必填项
                     
                     // 角色转换
                     String roleName = roleInput.getSelectedItem().toString();
@@ -653,8 +657,12 @@ public class StaffManagementPanel extends JPanel {
                         }
                         
                         // 日期格式化
-                        Date dateOfBirth = sdf.parse(dateOfBirthInput.getText().trim());
-                        Date hireDate = sdf.parse(hireDateInput.getText().trim());
+                        Date dateOfBirth = null;
+                        String dateOfBirthText = dateOfBirthInput.getText().trim();
+                        if (!dateOfBirthText.isEmpty()) {
+                            dateOfBirth = sdf.parse(dateOfBirthText);
+                        }
+                        Date hireDate = sdf.parse(hireDateInput.getText().trim()); // hireDate是必填项
                         
                         // 角色转换
                         String roleName = roleInput.getSelectedItem().toString();
